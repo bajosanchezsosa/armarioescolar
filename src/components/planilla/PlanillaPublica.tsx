@@ -3,10 +3,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, School, Calendar, BookOpen, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, School, Calendar, BookOpen, Save, CheckCircle, AlertCircle, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -20,7 +19,7 @@ interface PlanillaPublicaProps {
 
 export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
   const [profesorNombre, setProfesorNombre] = useState('');
-  const [notasData, setNotasData] = useState<Record<string, { nota: string; observaciones: string; tipo_evaluacion: string }>>({});
+  const [notasData, setNotasData] = useState<Record<string, { nota: string }>>({});
   const [saving, setSaving] = useState(false);
 
   const { data: planilla, isLoading: planillaLoading, error: planillaError } = usePlanillaByToken(token);
@@ -35,14 +34,10 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
   const createNota = useCreateNota();
   const updateNota = useUpdateNota();
 
-  console.log('PlanillaPublica - Token:', token);
-  console.log('PlanillaPublica - Planilla:', planilla);
-  console.log('PlanillaPublica - Planilla curso_id:', planilla?.curso_id);
-  console.log('PlanillaPublica - Alumnos:', alumnos);
-  console.log('PlanillaPublica - Alumnos length:', alumnos?.length);
-  console.log('PlanillaPublica - AlumnosLoading:', alumnosLoading);
-  console.log('PlanillaPublica - PlanillaLoading:', planillaLoading);
-  console.log('PlanillaPublica - Notas existentes:', notasExistentes);
+  // Determinar si es PRE nota o nota final basado en el nombre del período
+  const isPreNota = planilla?.periodo?.nombre?.toLowerCase().includes('pre') || false;
+  const isNotaFinal = planilla?.periodo?.nombre?.toLowerCase().includes('final') || 
+                     planilla?.periodo?.nombre?.toLowerCase().includes('cuatrimestre') || false;
 
   React.useEffect(() => {
     if (planilla?.profesor_nombre) {
@@ -54,27 +49,21 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
     if (notasExistentes.length > 0) {
       const notasMap = notasExistentes.reduce((acc, nota) => {
         acc[nota.alumno_id] = {
-          nota: nota.nota || '',
-          observaciones: nota.observaciones || '',
-          tipo_evaluacion: nota.tipo_evaluacion || 'parcial'
+          nota: nota.nota || ''
         };
         return acc;
-      }, {} as Record<string, { nota: string; observaciones: string; tipo_evaluacion: string }>);
+      }, {} as Record<string, { nota: string }>);
       setNotasData(notasMap);
     }
   }, [notasExistentes]);
 
   const alumnosActivos = alumnos.filter(a => a.activo);
-  
-  console.log('PlanillaPublica - Alumnos activos:', alumnosActivos);
-  console.log('PlanillaPublica - Alumnos activos length:', alumnosActivos.length);
 
-  const handleNotaChange = (alumnoId: string, field: string, value: string) => {
+  const handleNotaChange = (alumnoId: string, value: string) => {
     setNotasData(prev => ({
       ...prev,
       [alumnoId]: {
-        ...prev[alumnoId],
-        [field]: value
+        nota: value
       }
     }));
   };
@@ -93,6 +82,12 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
     setSaving(true);
 
     try {
+      console.log('Planilla data before update:', {
+        id: planilla.id,
+        profesor_nombre: profesorNombre.trim(),
+        estado: 'completada'
+      });
+      
       // Actualizar nombre del profesor en la planilla
       await updatePlanilla.mutateAsync({
         id: planilla.id,
@@ -106,14 +101,22 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
 
         const notaExistente = notasExistentes.find(n => n.alumno_id === alumnoId);
         
+        // Determinar el tipo de evaluación basado en el período
+        let tipoEvaluacion = 'Parcial';
+        if (isPreNota) {
+          tipoEvaluacion = 'PRE';
+        } else if (isNotaFinal) {
+          tipoEvaluacion = 'Nota Final';
+        }
+        
         const notaData = {
           alumno_id: alumnoId,
           materia_id: planilla.materia_id,
           curso_id: planilla.curso_id,
           periodo_id: planilla.periodo_id,
           nota: data.nota.trim(),
-          tipo_evaluacion: data.tipo_evaluacion || 'parcial',
-          observaciones: data.observaciones?.trim() || null,
+          tipo_evaluacion: tipoEvaluacion,
+          observaciones: `Planilla completada por: ${profesorNombre.trim()}`,
           fecha: format(new Date(), 'yyyy-MM-dd')
         };
 
@@ -132,6 +135,7 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
       toast.success('¡Planilla guardada exitosamente!');
     } catch (error) {
       console.error('Error saving planilla:', error);
+      console.error('Full error details:', JSON.stringify(error, null, 2));
       toast.error('Error al guardar la planilla');
     } finally {
       setSaving(false);
@@ -179,11 +183,6 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
           <AlertCircle className="h-12 w-12 text-orange-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-orange-600 mb-2">Sin alumnos</h1>
           <p className="text-gray-600">No hay alumnos activos en este curso para cargar notas.</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Curso ID: {planilla.curso_id}<br/>
-            Total alumnos: {alumnos.length}<br/>
-            Alumnos activos: {alumnosActivos.length}
-          </p>
         </div>
       </div>
     );
@@ -240,7 +239,10 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
         {/* Información del profesor */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Información del Profesor</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Información del Profesor
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -249,10 +251,13 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
                 id="profesor"
                 value={profesorNombre}
                 onChange={(e) => setProfesorNombre(e.target.value)}
-                placeholder="Ingresa tu nombre completo"
+                placeholder="Ingresa tu nombre completo (cuenta como firma)"
                 required
                 disabled={planilla.estado === 'completada'}
               />
+              <p className="text-xs text-gray-500">
+                Este campo es obligatorio y cuenta como tu firma digital
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -262,67 +267,74 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
           <CardHeader>
             <CardTitle>Registro de Notas</CardTitle>
             <p className="text-sm text-gray-600">
-              Completa las notas para cada alumno. Los campos marcados con * son obligatorios.
+              {isPreNota 
+                ? 'Selecciona TEA, TEP o TED para cada alumno'
+                : isNotaFinal 
+                ? 'Ingresa la nota del 1 al 10 para cada alumno'
+                : 'Ingresa la nota para cada alumno'
+              }
             </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {alumnosActivos.map((alumno, index) => {
-                const notaData = notasData[alumno.id] || { nota: '', observaciones: '', tipo_evaluacion: 'parcial' };
+                const notaData = notasData[alumno.id] || { nota: '' };
                 
                 return (
-                  <div key={alumno.id} className="p-4 border rounded-lg">
+                  <div key={alumno.id} className="p-4 border rounded-lg bg-white">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-medium">
+                      <h3 className="font-medium text-lg">
                         {index + 1}. {alumno.apellido}, {alumno.nombre}
                       </h3>
                       {alumno.dni && (
-                        <span className="text-xs text-gray-500">DNI: {alumno.dni}</span>
+                        <span className="text-sm text-gray-500">DNI: {alumno.dni}</span>
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Tipo de Evaluación *</Label>
+                    <div className="flex items-center gap-4">
+                      <Label className="min-w-20">Nota:</Label>
+                      
+                      {isPreNota ? (
                         <Select
-                          value={notaData.tipo_evaluacion}
-                          onValueChange={(value) => handleNotaChange(alumno.id, 'tipo_evaluacion', value)}
+                          value={notaData.nota}
+                          onValueChange={(value) => handleNotaChange(alumno.id, value)}
                           disabled={planilla.estado === 'completada'}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar tipo" />
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Seleccionar" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="parcial">Parcial</SelectItem>
-                            <SelectItem value="final">Final</SelectItem>
-                            <SelectItem value="recuperacion">Recuperación</SelectItem>
-                            <SelectItem value="trabajo_practico">Trabajo Práctico</SelectItem>
-                            <SelectItem value="oral">Oral</SelectItem>
-                            <SelectItem value="proyecto">Proyecto</SelectItem>
+                            <SelectItem value="TEA">TEA</SelectItem>
+                            <SelectItem value="TEP">TEP</SelectItem>
+                            <SelectItem value="TED">TED</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Nota *</Label>
+                      ) : isNotaFinal ? (
+                        <Select
+                          value={notaData.nota}
+                          onValueChange={(value) => handleNotaChange(alumno.id, value)}
+                          disabled={planilla.estado === 'completada'}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Seleccionar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                              <SelectItem key={num} value={num.toString()}>
+                                {num}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
                         <Input
                           value={notaData.nota}
-                          onChange={(e) => handleNotaChange(alumno.id, 'nota', e.target.value)}
-                          placeholder="ej: 8, Aprobado, etc."
+                          onChange={(e) => handleNotaChange(alumno.id, e.target.value)}
+                          placeholder="Ingresa la nota"
+                          className="w-32"
                           disabled={planilla.estado === 'completada'}
                         />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Observaciones</Label>
-                        <Textarea
-                          value={notaData.observaciones}
-                          onChange={(e) => handleNotaChange(alumno.id, 'observaciones', e.target.value)}
-                          placeholder="Observaciones adicionales..."
-                          rows={2}
-                          disabled={planilla.estado === 'completada'}
-                        />
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -335,6 +347,7 @@ export const PlanillaPublica = ({ token }: PlanillaPublicaProps) => {
                   onClick={handleSaveAll}
                   disabled={saving || !profesorNombre.trim()}
                   className="bg-green-600 hover:bg-green-700"
+                  size="lg"
                 >
                   {saving ? (
                     <>

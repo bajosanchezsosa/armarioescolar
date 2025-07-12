@@ -107,7 +107,7 @@ export const RegistroGeneralTableRow = ({
             </TableCell>
           );
         }
-
+        
         // Verificar si el alumno tiene clase en este día según su grupo
         const tieneClase = alumnoTieneClaseEnDia(fecha, alumno.grupo_taller, materias, modulosPorMateria);
         

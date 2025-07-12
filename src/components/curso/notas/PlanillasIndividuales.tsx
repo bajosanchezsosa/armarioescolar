@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Share2, Eye, Copy, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Share2, Eye, Copy, CheckCircle, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { usePlanillasCompartibles, useCreatePlanillaCompartible, generateUniqueToken, PlanillaCompartible } from '@/hooks/usePlanillasCompartibles';
+import { usePlanillasCompartibles, useCreatePlanillaCompartible, useDeletePlanillaCompartible, generateUniqueToken, PlanillaCompartible } from '@/hooks/usePlanillasCompartibles';
 import { PeriodoNota } from '@/hooks/usePeriodosNotas';
 import { Materia } from '@/types/database';
 import { PlanillaView } from './PlanillaView';
@@ -28,6 +28,7 @@ export const PlanillasIndividuales = ({ cursoId, periodoId, periodo, materias }:
   
   const { data: planillas = [], isLoading } = usePlanillasCompartibles(cursoId, periodoId);
   const createPlanilla = useCreatePlanillaCompartible();
+  const deletePlanilla = useDeletePlanillaCompartible();
 
   const handleCreatePlanilla = async () => {
     if (!selectedMateria) {
@@ -64,6 +65,20 @@ export const PlanillasIndividuales = ({ cursoId, periodoId, periodo, materias }:
     const message = `Hola! Te comparto la planilla de notas de ${planilla.materia?.nombre} - ${planilla.periodo?.nombre}. Podés completarla desde este link: ${url}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handleDeletePlanilla = async (planilla: PlanillaCompartible) => {
+    const confirmMessage = planilla.estado === 'completada' || planilla.estado === 'enviada_final'
+      ? `¿Estás seguro de que deseas eliminar la planilla de ${planilla.materia?.nombre}? Esta planilla ya está completada y se perderán todos los datos.`
+      : `¿Estás seguro de que deseas eliminar la planilla de ${planilla.materia?.nombre}?`;
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        await deletePlanilla.mutateAsync(planilla.id);
+      } catch (error) {
+        console.error('Error deleting planilla:', error);
+      }
+    }
   };
 
   if (isLoading) {
@@ -129,6 +144,7 @@ export const PlanillasIndividuales = ({ cursoId, periodoId, periodo, materias }:
                   key={planilla.id}
                   planilla={planilla}
                   onView={setViewingPlanilla}
+                  onDelete={handleDeletePlanilla}
                 />
               ))}
             </div>
@@ -182,13 +198,26 @@ export const PlanillasIndividuales = ({ cursoId, periodoId, periodo, materias }:
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {(planilla.estado === 'completada' || planilla.estado === 'enviada_final') ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setViewingPlanilla(planilla)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setViewingPlanilla(planilla)}
+                                title="Ver planilla"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeletePlanilla(planilla)}
+                                title="Eliminar planilla"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                disabled={deletePlanilla.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
                           ) : (
                             <>
                               <Button
@@ -206,6 +235,16 @@ export const PlanillasIndividuales = ({ cursoId, periodoId, periodo, materias }:
                                 title="Copiar link"
                               >
                                 <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeletePlanilla(planilla)}
+                                title="Eliminar planilla"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                disabled={deletePlanilla.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
                           )}

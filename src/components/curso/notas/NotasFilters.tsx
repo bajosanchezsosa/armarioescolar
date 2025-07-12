@@ -60,7 +60,8 @@ export const NotasFilters = ({
           <SelectItem value="Oral">Oral</SelectItem>
           <SelectItem value="Trabajo Práctico">Trabajo Práctico</SelectItem>
           <SelectItem value="Taller">Taller</SelectItem>
-          <SelectItem value="Educación Física">Educación Física</SelectItem>
+          <SelectItem value="EF">Educación Física</SelectItem>
+          <SelectItem value="Nota Final">Nota Final</SelectItem>
         </SelectContent>
       </Select>
     </div>

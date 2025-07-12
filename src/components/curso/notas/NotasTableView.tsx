@@ -12,9 +12,10 @@ import { TipoBadge } from './TipoBadge';
 interface NotasTableViewProps {
   notas: Nota[];
   onEdit: (nota: Nota) => void;
+  onEditNotaFinal?: (nota: Nota) => void;
 }
 
-export const NotasTableView = ({ notas, onEdit }: NotasTableViewProps) => {
+export const NotasTableView = ({ notas, onEdit, onEditNotaFinal }: NotasTableViewProps) => {
   const deleteNota = useDeleteNota();
 
   const handleDelete = (id: string) => {
@@ -64,7 +65,13 @@ export const NotasTableView = ({ notas, onEdit }: NotasTableViewProps) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onEdit(nota)}
+                      onClick={() => {
+                        if (nota.tipo_evaluacion === 'Nota Final' && onEditNotaFinal) {
+                          onEditNotaFinal(nota);
+                        } else {
+                          onEdit(nota);
+                        }
+                      }}
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>

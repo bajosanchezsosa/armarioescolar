@@ -9,9 +9,10 @@ interface NotasTableProps {
   notas: Nota[];
   materias: any[];
   onEdit: (nota: Nota) => void;
+  onEditNotaFinal?: (nota: Nota) => void;
 }
 
-export const NotasTable = ({ notas, materias, onEdit }: NotasTableProps) => {
+export const NotasTable = ({ notas, materias, onEdit, onEditNotaFinal }: NotasTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [materiaFilter, setMateriaFilter] = useState('all');
   const [tipoFilter, setTipoFilter] = useState('all');
@@ -44,6 +45,7 @@ export const NotasTable = ({ notas, materias, onEdit }: NotasTableProps) => {
       <NotasTableView 
         notas={filteredNotas}
         onEdit={onEdit}
+        onEditNotaFinal={onEditNotaFinal}
       />
     </div>
   );

@@ -155,6 +155,8 @@ export const useUpdatePlanillaCompartible = () => {
         ...(updates.estado === 'completada' && { fecha_completada: new Date().toISOString() })
       };
       
+      console.log('Update data being sent:', updateData);
+      
       const { data, error } = await supabase
         .from('planillas_compartibles')
         .update(updateData)
@@ -164,6 +166,12 @@ export const useUpdatePlanillaCompartible = () => {
 
       if (error) {
         console.error('Error updating planilla:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
 
@@ -177,7 +185,39 @@ export const useUpdatePlanillaCompartible = () => {
     },
     onError: (error) => {
       console.error('Error updating planilla:', error);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
       toast.error('Error al actualizar la planilla');
+    },
+  });
+};
+
+export const useDeletePlanillaCompartible = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      console.log('Deleting planilla:', id);
+      
+      const { error } = await supabase
+        .from('planillas_compartibles')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting planilla:', error);
+        throw error;
+      }
+
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.invalidateQueries({ queryKey: ['planillas-compartibles'] });
+      toast.success('Planilla eliminada exitosamente');
+      console.log('Planilla deleted successfully:', id);
+    },
+    onError: (error) => {
+      console.error('Error deleting planilla:', error);
+      toast.error('Error al eliminar la planilla');
     },
   });
 };

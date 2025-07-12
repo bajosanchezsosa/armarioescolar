@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Share2, CheckCircle, Clock, Copy } from 'lucide-react';
+import { Eye, Share2, CheckCircle, Clock, Copy, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PlanillaCompartible } from '@/hooks/usePlanillasCompartibles';
@@ -12,9 +12,10 @@ import { toast } from 'sonner';
 interface MobilePlanillasCardProps {
   planilla: PlanillaCompartible;
   onView: (planilla: PlanillaCompartible) => void;
+  onDelete?: (planilla: PlanillaCompartible) => void;
 }
 
-export const MobilePlanillasCard = ({ planilla, onView }: MobilePlanillasCardProps) => {
+export const MobilePlanillasCard = ({ planilla, onView, onDelete }: MobilePlanillasCardProps) => {
   const handleCopyLink = () => {
     const url = `${window.location.origin}/planilla/${planilla.token_url}`;
     navigator.clipboard.writeText(url);
@@ -69,14 +70,26 @@ export const MobilePlanillasCard = ({ planilla, onView }: MobilePlanillasCardPro
         
         <div className="flex flex-col gap-2">
           {planilla.estado === 'completada' ? (
-            <Button 
-              onClick={() => onView(planilla)}
-              className="w-full"
-              variant="outline"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Ver Planilla
-            </Button>
+            <>
+              <Button 
+                onClick={() => onView(planilla)}
+                className="w-full"
+                variant="outline"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Ver Planilla
+              </Button>
+              {onDelete && (
+                <Button 
+                  onClick={() => onDelete(planilla)}
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar Planilla
+                </Button>
+              )}
+            </>
           ) : (
             <>
               <Button 
@@ -94,6 +107,16 @@ export const MobilePlanillasCard = ({ planilla, onView }: MobilePlanillasCardPro
                 <Copy className="h-4 w-4 mr-2" />
                 Copiar Link
               </Button>
+              {onDelete && (
+                <Button 
+                  onClick={() => onDelete(planilla)}
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar Planilla
+                </Button>
+              )}
             </>
           )}
         </div>

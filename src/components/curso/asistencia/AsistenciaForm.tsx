@@ -206,12 +206,12 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
     alumnos.forEach(alumno => {
       const grupoSinClase = esTaller ? sinClaseGrupos[alumno.grupo_taller] : sinClase;
       
-      const estado = asistencias[alumno.id] || 'P';
-      switch (estado) {
-        case 'P': presentes++; break;
-        case 'A': ausentes++; break;
-        case 'T': tardanzas++; break;
-        case 'J': justificados++; break;
+        const estado = asistencias[alumno.id] || 'P';
+        switch (estado) {
+          case 'P': presentes++; break;
+          case 'A': ausentes++; break;
+          case 'T': tardanzas++; break;
+          case 'J': justificados++; break;
         case 'SC': /* No contar como presente ni ausente */ break;
       }
     });

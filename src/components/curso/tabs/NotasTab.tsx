@@ -5,6 +5,7 @@ import { useAlumnos } from '@/hooks/useAlumnos';
 import { useNotas, Nota } from '@/hooks/useNotas';
 import { usePeriodosNotas, PeriodoNota } from '@/hooks/usePeriodosNotas';
 import { NotaForm } from '@/components/curso/notas/NotaForm';
+import { NotaFinalForm } from '@/components/curso/notas/NotaFinalForm';
 import { NotasTable } from '@/components/curso/notas/NotasTable';
 import { PeriodosManager } from '@/components/curso/notas/PeriodosManager';
 import { PlanillasIndividuales } from '@/components/curso/notas/PlanillasIndividuales';
@@ -12,7 +13,7 @@ import { RegistroManualExcel } from '@/components/curso/notas/RegistroManualExce
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Plus, Users, BookOpen, AlertCircle, Share2, Grid3X3 } from 'lucide-react';
+import { FileText, Plus, Users, BookOpen, AlertCircle, Share2, Grid3X3, GraduationCap } from 'lucide-react';
 
 interface NotasTabProps {
   cursoId: string;
@@ -20,6 +21,7 @@ interface NotasTabProps {
 
 export const NotasTab = ({ cursoId }: NotasTabProps) => {
   const [showForm, setShowForm] = useState(false);
+  const [showNotaFinalForm, setShowNotaFinalForm] = useState(false);
   const [editingNota, setEditingNota] = useState<Nota | null>(null);
   const [selectedPeriodo, setSelectedPeriodo] = useState<PeriodoNota | null>(null);
   
@@ -31,6 +33,9 @@ export const NotasTab = ({ cursoId }: NotasTabProps) => {
     undefined, 
     selectedPeriodo?.id
   );
+
+  // Buscar el período "Nota Final"
+  const periodoNotaFinal = periodos.find(p => p.nombre === 'Nota Final');
 
   // Debug logs
   React.useEffect(() => {
@@ -138,10 +143,18 @@ export const NotasTab = ({ cursoId }: NotasTabProps) => {
   const handleEdit = (nota: Nota) => {
     setEditingNota(nota);
     setShowForm(true);
+    setShowNotaFinalForm(false);
+  };
+
+  const handleEditNotaFinal = (nota: Nota) => {
+    setEditingNota(nota);
+    setShowNotaFinalForm(true);
+    setShowForm(false);
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
+    setShowNotaFinalForm(false);
     setEditingNota(null);
   };
 
@@ -164,10 +177,32 @@ export const NotasTab = ({ cursoId }: NotasTabProps) => {
           cursoId={cursoId}
           periodoId={selectedPeriodo?.id}
           editingNota={editingNota}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingNota(null);
-          }}
+          onCancel={handleCloseForm}
+        />
+      </div>
+    );
+  }
+
+  if (showNotaFinalForm && periodoNotaFinal) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Registro de Nota Final</h2>
+            <p className="text-gray-600">
+              {editingNota ? 'Editar nota final existente' : 'Registrar nueva nota final'}
+              {` - ${periodoNotaFinal.nombre}`}
+            </p>
+          </div>
+        </div>
+
+        <NotaFinalForm 
+          alumnos={alumnos}
+          materias={materias}
+          cursoId={cursoId}
+          periodoNotaFinal={periodoNotaFinal}
+          editingNota={editingNota}
+          onCancel={handleCloseForm}
         />
       </div>
     );
@@ -234,10 +269,22 @@ export const NotasTab = ({ cursoId }: NotasTabProps) => {
                   Registra notas individuales una por una
                 </p>
               </div>
-              <Button onClick={() => setShowForm(true)} className="bg-orange-600 hover:bg-orange-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Nota
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowForm(true)} className="bg-orange-600 hover:bg-orange-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nueva Nota
+                </Button>
+                {periodoNotaFinal && (
+                  <Button 
+                    onClick={() => setShowNotaFinalForm(true)} 
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-50"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Nota Final
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -288,6 +335,7 @@ export const NotasTab = ({ cursoId }: NotasTabProps) => {
                 setEditingNota(nota);
                 setShowForm(true);
               }}
+              onEditNotaFinal={handleEditNotaFinal}
             />
           </TabsContent>
         </Tabs>

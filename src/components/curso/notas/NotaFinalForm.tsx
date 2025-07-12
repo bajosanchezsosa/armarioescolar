@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,34 +10,41 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, X, GraduationCap } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { NotaInput, useCreateNota, useUpdateNota, Nota } from '@/hooks/useNotas';
 import { Alumno } from '@/types/database';
+import { PeriodoNota } from '@/hooks/usePeriodosNotas';
 
-const notaSchema = z.object({
+const notaFinalSchema = z.object({
   alumno_id: z.string().min(1, 'Selecciona un alumno'),
   materia_id: z.string().min(1, 'Selecciona una materia'),
-  tipo_evaluacion: z.enum(['Parcial', 'Trimestral', 'Oral', 'Trabajo Práctico', 'Taller', 'EF', 'Nota Final']),
   nota: z.string().nullable(),
   fecha: z.string().min(1, 'Selecciona una fecha'),
   observaciones: z.string().optional(),
 });
 
-type NotaFormData = z.infer<typeof notaSchema>;
+type NotaFinalFormData = z.infer<typeof notaFinalSchema>;
 
-interface NotaFormProps {
+interface NotaFinalFormProps {
   alumnos: Alumno[];
   materias: any[];
   cursoId: string;
-  periodoId?: string;
+  periodoNotaFinal: PeriodoNota;
   editingNota?: Nota | null;
   onCancel: () => void;
 }
 
-export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, onCancel }: NotaFormProps) => {
+export const NotaFinalForm = ({ 
+  alumnos, 
+  materias, 
+  cursoId, 
+  periodoNotaFinal, 
+  editingNota, 
+  onCancel 
+}: NotaFinalFormProps) => {
   const createNota = useCreateNota();
   const updateNota = useUpdateNota();
 
@@ -48,12 +54,11 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
     setValue,
     watch,
     formState: { errors },
-  } = useForm<NotaFormData>({
-    resolver: zodResolver(notaSchema),
+  } = useForm<NotaFinalFormData>({
+    resolver: zodResolver(notaFinalSchema),
     defaultValues: {
       alumno_id: editingNota?.alumno_id || '',
       materia_id: editingNota?.materia_id || '',
-      tipo_evaluacion: (editingNota?.tipo_evaluacion as any) || 'Parcial',
       nota: editingNota?.nota || '',
       fecha: editingNota?.fecha || '',
       observaciones: editingNota?.observaciones || '',
@@ -62,7 +67,6 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
 
   const alumnoValue = watch('alumno_id');
   const materiaValue = watch('materia_id');
-  const tipoValue = watch('tipo_evaluacion');
   const fechaValue = watch('fecha');
 
   const handleAlumnoChange = (value: string) => {
@@ -73,20 +77,16 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
     setValue('materia_id', value);
   };
 
-  const handleTipoChange = (value: string) => {
-    setValue('tipo_evaluacion', value as any);
-  };
-
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
       setValue('fecha', format(date, 'yyyy-MM-dd'));
     }
   };
 
-  const onSubmit = (data: NotaFormData) => {
-    console.log('Submitting nota:', data);
+  const onSubmit = (data: NotaFinalFormData) => {
+    console.log('Submitting nota final:', data);
     
-    if (!data.alumno_id || !data.materia_id || !data.tipo_evaluacion || !data.fecha) {
+    if (!data.alumno_id || !data.materia_id || !data.fecha) {
       console.error('Missing required fields');
       return;
     }
@@ -95,8 +95,8 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
       alumno_id: data.alumno_id,
       materia_id: data.materia_id,
       curso_id: cursoId,
-      periodo_id: periodoId,
-      tipo_evaluacion: data.tipo_evaluacion,
+      periodo_id: periodoNotaFinal.id,
+      tipo_evaluacion: 'Nota Final',
       nota: data.nota || null,
       fecha: data.fecha,
       observaciones: data.observaciones || '',
@@ -118,14 +118,21 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
   };
 
   return (
-    <Card>
+    <Card className="border-2 border-red-200">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{editingNota ? 'Editar Nota' : 'Nueva Nota'}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-red-800">
+            <GraduationCap className="h-5 w-5" />
+            {editingNota ? 'Editar Nota Final' : 'Nueva Nota Final'}
+          </CardTitle>
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <X className="h-4 w-4" />
           </Button>
         </div>
+        <p className="text-sm text-gray-600">
+          Período: <strong>{periodoNotaFinal.nombre}</strong>
+          {periodoNotaFinal.descripcion && ` - ${periodoNotaFinal.descripcion}`}
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -169,35 +176,14 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tipo_evaluacion">Tipo de Evaluación *</Label>
-              <Select value={tipoValue || ''} onValueChange={handleTipoChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Parcial">Parcial</SelectItem>
-                  <SelectItem value="Trimestral">Trimestral</SelectItem>
-                  <SelectItem value="Oral">Oral</SelectItem>
-                  <SelectItem value="Trabajo Práctico">Trabajo Práctico</SelectItem>
-                  <SelectItem value="Taller">Taller</SelectItem>
-                  <SelectItem value="EF">Educación Física</SelectItem>
-                  <SelectItem value="Nota Final">Nota Final</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.tipo_evaluacion && (
-                <p className="text-sm text-red-600">{errors.tipo_evaluacion.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nota">Nota</Label>
+              <Label htmlFor="nota">Nota Final</Label>
               <Input
                 id="nota"
                 {...register('nota')}
                 placeholder="Ej: 8, 7.5, A, B, NC (No Califica)"
               />
               <p className="text-xs text-gray-500">
-                Acepta números (1-10) o letras (A, B, C, etc.)
+                Nota definitiva del alumno en esta materia
               </p>
               {errors.nota && (
                 <p className="text-sm text-red-600">{errors.nota.message}</p>
@@ -244,18 +230,19 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
             <Textarea
               id="observaciones"
               {...register('observaciones')}
-              placeholder="Observaciones adicionales (opcional)"
+              placeholder="Observaciones sobre la nota final (opcional)"
               rows={3}
             />
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">Información:</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <h4 className="font-medium text-red-900 mb-2">Nota Final - Información Importante:</h4>
+            <ul className="text-sm text-red-800 space-y-1">
+              <li>• Esta es la <strong>nota definitiva</strong> del alumno en la materia</li>
+              <li>• Se registrará en el período "{periodoNotaFinal.nombre}"</li>
               <li>• Las notas pueden ser numéricas (1-10) o letras (A, B, C, etc.)</li>
               <li>• Puedes dejar la nota vacía si el alumno no califica</li>
-              <li>• Las observaciones son opcionales pero recomendadas</li>
-              {periodoId && <li>• Esta nota se registrará en el período seleccionado</li>}
+              <li>• Esta nota se usará para las calificaciones finales oficiales</li>
             </ul>
           </div>
 
@@ -263,10 +250,14 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createNota.isPending || updateNota.isPending}>
+            <Button 
+              type="submit" 
+              disabled={createNota.isPending || updateNota.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
               {createNota.isPending || updateNota.isPending 
                 ? 'Guardando...' 
-                : editingNota ? 'Actualizar Nota' : 'Guardar Nota'
+                : editingNota ? 'Actualizar Nota Final' : 'Guardar Nota Final'
               }
             </Button>
           </div>
@@ -274,4 +265,4 @@ export const NotaForm = ({ alumnos, materias, cursoId, periodoId, editingNota, o
       </CardContent>
     </Card>
   );
-};
+}; 

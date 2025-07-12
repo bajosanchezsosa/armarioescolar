@@ -13,7 +13,8 @@ export const TipoBadge = ({ tipo }: TipoBadgeProps) => {
     "Oral": "bg-orange-100 text-orange-800",
     "Trabajo Práctico": "bg-green-100 text-green-800",
     "Taller": "bg-yellow-100 text-yellow-800",
-    "Educación Física": "bg-pink-100 text-pink-800"
+    "EF": "bg-pink-100 text-pink-800",
+    "Nota Final": "bg-red-100 text-red-800"
   };
   
   return (
