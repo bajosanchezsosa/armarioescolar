@@ -1,5 +1,5 @@
 
-import { Asistencia, Materia } from '@/types/database';
+import { Asistencia, Materia, MateriaModulo } from '@/types/database';
 
 export interface InasistenciaResult {
   valor: number;
@@ -7,11 +7,46 @@ export interface InasistenciaResult {
   color: string;
 }
 
+// Función auxiliar para determinar si un alumno tiene clase en un día específico
+export const alumnoTieneClaseEnDia = (
+  fecha: string,
+  grupoAlumno: string,
+  materias: Materia[],
+  modulosPorMateria: Record<string, MateriaModulo[]>
+): boolean => {
+  // Convertir fecha a día de la semana (1=Lunes, 2=Martes, etc.)
+  const dia = new Date(fecha).getDay();
+  const diaSemana = dia === 0 ? 7 : dia; // Convertir domingo (0) a 7
+
+  // Verificar si alguna materia tiene módulos para este día y grupo
+  for (const materia of materias) {
+    const modulos = modulosPorMateria[materia.id] || [];
+    
+    const tieneModuloEnDia = modulos.some(modulo => {
+      // Verificar que el módulo sea para este día
+      if (modulo.dia_semana !== diaSemana) return false;
+      
+      // Verificar que el módulo sea para el grupo del alumno
+      if (modulo.grupo === 'todos') return true; // Todos los grupos
+      if (modulo.grupo === grupoAlumno) return true; // Grupo específico
+      
+      return false;
+    });
+    
+    if (tieneModuloEnDia) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 export const calcularInasistenciasDia = (
   alumnoId: string,
   fecha: string,
   registroData: Record<string, Asistencia[]>,
-  materias: Materia[]
+  materias: Materia[],
+  modulosPorMateria?: Record<string, MateriaModulo[]>
 ): InasistenciaResult => {
   const asistenciasDelDia = registroData[fecha] || [];
   const asistenciasAlumno = asistenciasDelDia.filter(a => a.alumno_id === alumnoId);
@@ -39,6 +74,7 @@ export const calcularInasistenciasDia = (
   const presencias = asistenciasAlumno.filter(a => a.estado === 'P').length;
   const tardanzas = asistenciasAlumno.filter(a => a.estado === 'T').length;
   const justificadas = asistenciasAlumno.filter(a => a.estado === 'J').length;
+  const sinClase = asistenciasAlumno.filter(a => a.estado === 'SC').length;
   const totalMaterias = asistenciasAlumno.length;
 
   console.log(`Resumen del alumno:`);
@@ -47,6 +83,7 @@ export const calcularInasistenciasDia = (
   console.log(`- Presencias: ${presencias}`);
   console.log(`- Tardanzas: ${tardanzas}`);
   console.log(`- Justificadas: ${justificadas}`);
+  console.log(`- Sin Clase: ${sinClase}`);
 
   // LÓGICA DE CÁLCULO CORREGIDA
   if (totalMaterias === 0) {
@@ -54,24 +91,46 @@ export const calcularInasistenciasDia = (
     return { valor: 0, tipo: 'vacio', color: 'text-gray-400' };
   }
 
-  if (ausencias === totalMaterias) {
-    // Ausente en todas las materias del día
-    console.log(`Resultado: Ausente en todo (${ausencias} inasistencias)`);
+  // Si todas las materias están marcadas como "Sin Clase", no contar como presente
+  if (sinClase === totalMaterias) {
+    console.log(`Resultado: Todas las materias sin clase (no cuenta como presente)`);
+    return { valor: 0, tipo: 'vacio', color: 'text-gray-400' };
+  }
+
+  // Filtrar solo las materias que NO están marcadas como "Sin Clase"
+  const materiasConClase = asistenciasAlumno.filter(a => a.estado !== 'SC');
+  const ausenciasConClase = materiasConClase.filter(a => a.estado === 'A').length;
+  const presenciasConClase = materiasConClase.filter(a => a.estado === 'P').length;
+  const totalMateriasConClase = materiasConClase.length;
+
+  console.log(`Materias con clase: ${totalMateriasConClase}`);
+  console.log(`- Ausencias con clase: ${ausenciasConClase}`);
+  console.log(`- Presencias con clase: ${presenciasConClase}`);
+
+  // Si no hay materias con clase, no contar como presente
+  if (totalMateriasConClase === 0) {
+    console.log(`Resultado: No hay materias con clase (no cuenta como presente)`);
+    return { valor: 0, tipo: 'vacio', color: 'text-gray-400' };
+  }
+
+  if (ausenciasConClase === totalMateriasConClase) {
+    // Ausente en todas las materias con clase
+    console.log(`Resultado: Ausente en todas las materias con clase (${ausenciasConClase} inasistencias)`);
     return { 
-      valor: ausencias, 
+      valor: ausenciasConClase, 
       tipo: 'ausente-todo', 
-      color: ausencias >= 2 ? 'text-red-600' : 'text-orange-500' 
+      color: ausenciasConClase >= 2 ? 'text-red-600' : 'text-orange-500' 
     };
   }
 
-  if (presencias === totalMaterias) {
-    // Presente en todas las materias del día
-    console.log(`Resultado: Presente en todo (0 inasistencias)`);
+  if (presenciasConClase === totalMateriasConClase) {
+    // Presente en todas las materias con clase
+    console.log(`Resultado: Presente en todas las materias con clase (0 inasistencias)`);
     return { valor: 0, tipo: 'presente-todo', color: 'text-green-600' };
   }
 
-  // CASO DE MEDIA INASISTENCIA: Ausente en algunas materias, presente en otras
-  if (ausencias > 0 && presencias > 0) {
+  // CASO DE MEDIA INASISTENCIA: Ausente en algunas materias con clase, presente en otras
+  if (ausenciasConClase > 0 && presenciasConClase > 0) {
     console.log(`Resultado: Media inasistencia (0.5 inasistencias)`);
     
     // Determinar el tipo de materia donde está ausente
@@ -92,9 +151,9 @@ export const calcularInasistenciasDia = (
     return { valor: 0.5, tipo: 'ausente-todo', color: 'text-red-600' };
   }
 
-  // Si solo hay tardanzas o justificadas, considerar como presente
-  if ((tardanzas > 0 || justificadas > 0) && ausencias === 0 && presencias === 0) {
-    console.log(`Resultado: Presente (tardanzas/justificadas)`);
+  // Si solo hay tardanzas o justificadas en materias con clase, considerar como presente
+  if ((tardanzas > 0 || justificadas > 0) && ausenciasConClase === 0 && presenciasConClase === 0) {
+    console.log(`Resultado: Presente (tardanzas/justificadas en materias con clase)`);
     return { valor: 0, tipo: 'presente-todo', color: 'text-green-600' };
   }
 

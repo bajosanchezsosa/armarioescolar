@@ -1,14 +1,16 @@
 
+
 import React from 'react';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { X, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Alumno, Materia } from '@/types/database';
+import { Alumno, Materia, MateriaModulo } from '@/types/database';
 import { DiaSinClase } from '@/hooks/useDiasSinClase';
-import { calcularInasistenciasDia, calcularTotalPeriodo } from '@/utils/asistenciaCalculations';
+import { calcularInasistenciasDia, calcularTotalPeriodo, alumnoTieneClaseEnDia } from '@/utils/asistenciaCalculations';
 import { RegistroGeneralCell } from './RegistroGeneralCell';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMateriaModulos } from '@/hooks/useMateriaQueries';
 
 interface RegistroGeneralTableRowProps {
   alumno: Alumno;
@@ -32,6 +34,13 @@ export const RegistroGeneralTableRow = ({
   registroAnualData 
 }: RegistroGeneralTableRowProps) => {
   const queryClient = useQueryClient();
+  
+  // Obtener módulos para todas las materias
+  const modulosPorMateria: Record<string, MateriaModulo[]> = {};
+  materias.forEach(materia => {
+    const { data: modulosMateria = [] } = useMateriaModulos(materia.id);
+    modulosPorMateria[materia.id] = modulosMateria;
+  });
   
   const getDiaSinClaseForDate = (date: Date) => {
     return diasSinClase.find(d => d.fecha === format(date, 'yyyy-MM-dd'));
@@ -98,8 +107,19 @@ export const RegistroGeneralTableRow = ({
             </TableCell>
           );
         }
+
+        // Verificar si el alumno tiene clase en este día según su grupo
+        const tieneClase = alumnoTieneClaseEnDia(fecha, alumno.grupo_taller, materias, modulosPorMateria);
         
-        const inasistencia = calcularInasistenciasDia(alumno.id, fecha, registroData, materias);
+        if (!tieneClase) {
+          return (
+            <TableCell key={`${alumno.id}-${fecha}`} className="text-center bg-gray-50">
+              <span className="text-gray-400">-</span>
+            </TableCell>
+          );
+        }
+        
+        const inasistencia = calcularInasistenciasDia(alumno.id, fecha, registroData, materias, modulosPorMateria);
         
         return (
           <RegistroGeneralCell

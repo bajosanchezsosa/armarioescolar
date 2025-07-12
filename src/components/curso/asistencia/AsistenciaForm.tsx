@@ -123,10 +123,10 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
   const handleSinClaseToggle = () => {
     setSinClase(!sinClase);
     if (!sinClase) {
-      // Al marcar sin clase, no marcar como ausentes
+      // Al marcar sin clase, marcar como 'SC' (Sin Clase)
       const newAsistencias: Record<string, EstadoAsistencia> = {};
       alumnos.forEach(alumno => {
-        newAsistencias[alumno.id] = 'P'; // Mantener como presente cuando no hay clase
+        newAsistencias[alumno.id] = 'SC'; // Marcar como Sin Clase
       });
       setAsistencias(newAsistencias);
     }
@@ -139,12 +139,12 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
     }));
     
     if (sinClase) {
-      // Al marcar sin clase para este grupo, marcar todos como presentes
+      // Al marcar sin clase para este grupo, marcar todos como 'SC' (Sin Clase)
       const newAsistencias = { ...asistencias };
       alumnos
         .filter(alumno => alumno.grupo_taller === grupo)
         .forEach(alumno => {
-          newAsistencias[alumno.id] = 'P';
+          newAsistencias[alumno.id] = 'SC';
         });
       setAsistencias(newAsistencias);
     }
@@ -173,7 +173,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
       // Determinar si este alumno está en un grupo marcado como "sin clase"
       const grupoSinClase = esTaller ? sinClaseGrupos[alumno.grupo_taller] : sinClase;
       
-      const estadoFinal = grupoSinClase ? 'P' : (asistencias[alumno.id] || 'P');
+      const estadoFinal = grupoSinClase ? 'SC' : (asistencias[alumno.id] || 'P');
       
       // Logging para debug
       console.log(`=== DEBUG GUARDAR ASISTENCIA ===`);
@@ -206,16 +206,13 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
     alumnos.forEach(alumno => {
       const grupoSinClase = esTaller ? sinClaseGrupos[alumno.grupo_taller] : sinClase;
       
-      if (grupoSinClase) {
-        presentes++;
-      } else {
-        const estado = asistencias[alumno.id] || 'P';
-        switch (estado) {
-          case 'P': presentes++; break;
-          case 'A': ausentes++; break;
-          case 'T': tardanzas++; break;
-          case 'J': justificados++; break;
-        }
+      const estado = asistencias[alumno.id] || 'P';
+      switch (estado) {
+        case 'P': presentes++; break;
+        case 'A': ausentes++; break;
+        case 'T': tardanzas++; break;
+        case 'J': justificados++; break;
+        case 'SC': /* No contar como presente ni ausente */ break;
       }
     });
 

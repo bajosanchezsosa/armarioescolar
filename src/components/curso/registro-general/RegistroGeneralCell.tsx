@@ -60,9 +60,9 @@ export const RegistroGeneralCell = ({
   const getTooltipText = () => {
     switch (inasistencia.tipo) {
       case 'vacio':
-        return 'Sin datos de asistencia registrados';
+        return 'Sin datos de asistencia registrados o todas las materias marcadas como "Sin Clase"';
       case 'presente-todo':
-        return 'Presente en todas las materias';
+        return 'Presente en todas las materias con clase';
       case 'ausente-clase':
         return 'Ausente en Clase (0.5 inasistencias)';
       case 'ausente-taller':

@@ -12,7 +12,7 @@ export type ActaAlumno = Database['public']['Tables']['acta_alumnos']['Row'];
 export type User = Database['public']['Tables']['users']['Row'];
 export type DiaSinClase = Database['public']['Tables']['dias_sin_clase']['Row'];
 
-export type EstadoAsistencia = 'P' | 'A' | 'T' | 'J';
+export type EstadoAsistencia = 'P' | 'A' | 'T' | 'J' | 'SC';
 export type TipoMateria = 'Clase' | 'Taller' | 'EF';
 export type GrupoTaller = 'A' | 'B' | 'todos';
 export type Turno = 'mañana' | 'tarde' | 'noche';
