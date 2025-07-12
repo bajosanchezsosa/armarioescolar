@@ -17,7 +17,24 @@ export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => 
 
       const fechas = workingDays.map(day => format(day, 'yyyy-MM-dd'));
       
-      const { data, error } = await supabase
+      console.log(`=== DEBUG REGISTRO GENERAL ===`);
+      console.log(`Curso ID: ${cursoId}`);
+      console.log(`Fechas a consultar:`, fechas);
+      
+      // Primero obtener todos los alumnos del curso
+      const { data: alumnos, error: errorAlumnos } = await supabase
+        .from('alumnos')
+        .select('id, nombre, apellido, activo, grupo_taller, curso_id')
+        .eq('curso_id', cursoId)
+        .eq('activo', true);
+
+      if (errorAlumnos) throw errorAlumnos;
+
+      console.log(`Alumnos del curso:`, alumnos);
+      console.log(`Total alumnos:`, alumnos?.length || 0);
+
+      // Luego obtener todas las asistencias para las fechas especificadas
+      const { data: asistencias, error } = await supabase
         .from('asistencias')
         .select(`
           *,
@@ -42,13 +59,18 @@ export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => 
 
       if (error) throw error;
 
+      console.log(`Datos obtenidos de la BD:`, asistencias);
+      console.log(`Total de registros de asistencia:`, asistencias?.length || 0);
+
       // Agrupar por fecha
       const result: Record<string, Asistencia[]> = {};
       
       fechas.forEach(fecha => {
-        result[fecha] = (data || []).filter(asistencia => asistencia.fecha === fecha);
+        result[fecha] = (asistencias || []).filter(asistencia => asistencia.fecha === fecha);
+        console.log(`Asistencias para ${fecha}:`, result[fecha]);
       });
 
+      console.log(`=== FIN DEBUG REGISTRO GENERAL ===`);
       return result;
     },
     enabled: !!user && !!cursoId && workingDays.length > 0,

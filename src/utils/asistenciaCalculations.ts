@@ -3,7 +3,7 @@ import { Asistencia, Materia } from '@/types/database';
 
 export interface InasistenciaResult {
   valor: number;
-  tipo: 'vacio' | 'presente-todo' | 'ausente-todo' | 'ausente-parcial' | 'ausente-clase' | 'ausente-taller' | 'ausente-ef';
+  tipo: 'vacio' | 'presente-todo' | 'ausente-todo' | 'ausente-clase' | 'ausente-taller' | 'ausente-ef' | 'presente' | 'inasistencia';
   color: string;
 }
 
@@ -16,86 +16,90 @@ export const calcularInasistenciasDia = (
   const asistenciasDelDia = registroData[fecha] || [];
   const asistenciasAlumno = asistenciasDelDia.filter(a => a.alumno_id === alumnoId);
 
+  console.log(`=== DEBUG ASISTENCIA SIMPLIFICADA ===`);
+  console.log(`Alumno ID: ${alumnoId}, Fecha: ${fecha}`);
+  console.log(`Total asistencias del día: ${asistenciasDelDia.length}`);
+  console.log(`Asistencias del alumno: ${asistenciasAlumno.length}`);
+
+  // Si no hay asistencias registradas para este alumno
   if (asistenciasAlumno.length === 0) {
+    console.log(`No hay asistencias registradas para este alumno`);
     return { valor: 0, tipo: 'vacio', color: 'text-gray-400' };
   }
 
-  // Obtener materias que tuvieron clases ese día
-  const materiasConClase = [...new Set(asistenciasDelDia.map(a => a.materia_id))];
-  const materiasDelDia = materias.filter(m => materiasConClase.includes(m.id));
+  // DEBUG DETALLADO DE ASISTENCIAS DEL ALUMNO
+  console.log(`DEBUG ASISTENCIAS DEL ALUMNO:`);
+  asistenciasAlumno.forEach(asistencia => {
+    const materia = materias.find(m => m.id === asistencia.materia_id);
+    console.log(`- Materia: ${materia?.nombre || 'Desconocida'} (${materia?.tipo || 'Sin tipo'}) - Estado: ${asistencia.estado}`);
+  });
 
-  const materiasClaseDelDia = materiasDelDia.filter(m => m.tipo === 'Clase');
-  const materiasTallerDelDia = materiasDelDia.filter(m => m.tipo === 'Taller');
-  const materiasEFDelDia = materiasDelDia.filter(m => m.tipo === 'EF');
+  // LÓGICA CORREGIDA: Considerar cada materia individualmente
+  const ausencias = asistenciasAlumno.filter(a => a.estado === 'A').length;
+  const presencias = asistenciasAlumno.filter(a => a.estado === 'P').length;
+  const tardanzas = asistenciasAlumno.filter(a => a.estado === 'T').length;
+  const justificadas = asistenciasAlumno.filter(a => a.estado === 'J').length;
+  const totalMaterias = asistenciasAlumno.length;
 
-  // Verificar presencia
-  const presenteEnClase = materiasClaseDelDia.length === 0 || materiasClaseDelDia.some(m => 
-    asistenciasAlumno.some(a => a.materia_id === m.id && a.estado === 'P')
-  );
-  const presenteEnTaller = materiasTallerDelDia.length === 0 || materiasTallerDelDia.some(m => 
-    asistenciasAlumno.some(a => a.materia_id === m.id && a.estado === 'P')
-  );
-  const presenteEnEF = materiasEFDelDia.length === 0 || materiasEFDelDia.some(m => 
-    asistenciasAlumno.some(a => a.materia_id === m.id && a.estado === 'P')
-  );
+  console.log(`Resumen del alumno:`);
+  console.log(`- Total materias: ${totalMaterias}`);
+  console.log(`- Ausencias: ${ausencias}`);
+  console.log(`- Presencias: ${presencias}`);
+  console.log(`- Tardanzas: ${tardanzas}`);
+  console.log(`- Justificadas: ${justificadas}`);
 
-  const ausenteEnClase = materiasClaseDelDia.length > 0 && !presenteEnClase;
-  const ausenteEnTaller = materiasTallerDelDia.length > 0 && !presenteEnTaller;
-  const ausenteEnEF = materiasEFDelDia.length > 0 && !presenteEnEF;
+  // LÓGICA DE CÁLCULO CORREGIDA
+  if (totalMaterias === 0) {
+    // No hay materias registradas para este día
+    return { valor: 0, tipo: 'vacio', color: 'text-gray-400' };
+  }
 
-  const totalMaterias = materiasClaseDelDia.length + materiasTallerDelDia.length + materiasEFDelDia.length;
-  const materiasAusentes = (ausenteEnClase ? 1 : 0) + (ausenteEnTaller ? 1 : 0) + (ausenteEnEF ? 1 : 0);
+  if (ausencias === totalMaterias) {
+    // Ausente en todas las materias del día
+    console.log(`Resultado: Ausente en todo (${ausencias} inasistencias)`);
+    return { 
+      valor: ausencias, 
+      tipo: 'ausente-todo', 
+      color: ausencias >= 2 ? 'text-red-600' : 'text-orange-500' 
+    };
+  }
 
-  return calcularValorInasistencia(
-    presenteEnClase, presenteEnTaller, presenteEnEF,
-    ausenteEnClase, ausenteEnTaller, ausenteEnEF,
-    totalMaterias, materiasAusentes
-  );
-};
-
-const calcularValorInasistencia = (
-  presenteEnClase: boolean, presenteEnTaller: boolean, presenteEnEF: boolean,
-  ausenteEnClase: boolean, ausenteEnTaller: boolean, ausenteEnEF: boolean,
-  totalMaterias: number, materiasAusentes: number
-): InasistenciaResult => {
-  if (presenteEnClase && presenteEnTaller && presenteEnEF) {
+  if (presencias === totalMaterias) {
+    // Presente en todas las materias del día
+    console.log(`Resultado: Presente en todo (0 inasistencias)`);
     return { valor: 0, tipo: 'presente-todo', color: 'text-green-600' };
   }
 
-  if (materiasAusentes === totalMaterias) {
-    return { valor: 1, tipo: 'ausente-todo', color: 'text-red-600' };
-  }
-
-  if (totalMaterias === 3 && materiasAusentes === 2) {
-    return { valor: 0.5, tipo: 'ausente-parcial', color: 'text-red-600' };
-  }
-
-  if (totalMaterias === 3 && materiasAusentes === 1) {
-    if (ausenteEnClase) {
-      return { valor: 0.25, tipo: 'ausente-clase', color: 'text-red-600' };
-    } else if (ausenteEnTaller) {
-      return { valor: 0.25, tipo: 'ausente-taller', color: 'text-red-600' };
-    } else if (ausenteEnEF) {
-      return { valor: 0.25, tipo: 'ausente-ef', color: 'text-red-600' };
-    }
-  }
-
-  if (totalMaterias === 2 && materiasAusentes === 1) {
-    if (ausenteEnClase) {
+  // CASO DE MEDIA INASISTENCIA: Ausente en algunas materias, presente en otras
+  if (ausencias > 0 && presencias > 0) {
+    console.log(`Resultado: Media inasistencia (0.5 inasistencias)`);
+    
+    // Determinar el tipo de materia donde está ausente
+    const materiasAusentes = asistenciasAlumno.filter(a => a.estado === 'A');
+    const primeraMateriaAusente = materias.find(m => m.id === materiasAusentes[0]?.materia_id);
+    
+    if (primeraMateriaAusente?.tipo === 'Clase') {
       return { valor: 0.5, tipo: 'ausente-clase', color: 'text-red-600' };
-    } else if (ausenteEnTaller) {
+    }
+    if (primeraMateriaAusente?.tipo === 'Taller') {
       return { valor: 0.5, tipo: 'ausente-taller', color: 'text-red-600' };
-    } else if (ausenteEnEF) {
+    }
+    if (primeraMateriaAusente?.tipo === 'EF') {
       return { valor: 0.5, tipo: 'ausente-ef', color: 'text-red-600' };
     }
+    
+    // Si no se puede determinar el tipo, usar ausente-todo
+    return { valor: 0.5, tipo: 'ausente-todo', color: 'text-red-600' };
   }
 
-  if (totalMaterias === 1 && materiasAusentes === 1) {
-    if (ausenteEnClase || ausenteEnTaller || ausenteEnEF) {
-      return { valor: 1, tipo: 'ausente-clase', color: 'text-red-600' };
-    }
+  // Si solo hay tardanzas o justificadas, considerar como presente
+  if ((tardanzas > 0 || justificadas > 0) && ausencias === 0 && presencias === 0) {
+    console.log(`Resultado: Presente (tardanzas/justificadas)`);
+    return { valor: 0, tipo: 'presente-todo', color: 'text-green-600' };
   }
 
+  // Caso por defecto (no debería llegar aquí)
+  console.log(`Resultado: Caso por defecto - presente`);
   return { valor: 0, tipo: 'presente-todo', color: 'text-green-600' };
 };
 

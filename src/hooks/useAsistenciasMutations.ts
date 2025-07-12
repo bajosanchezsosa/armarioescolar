@@ -76,7 +76,12 @@ export const useBulkUpdateAsistencias = () => {
 
   return useMutation({
     mutationFn: async (asistencias: Array<{ alumnoId: string; materiaId: string; fecha: string; estado: EstadoAsistencia; userId: string; cursoId: string }>) => {
+      console.log(`=== DEBUG MUTACIÓN ASISTENCIAS ===`);
+      console.log(`Datos recibidos:`, asistencias);
+      
       const updates = asistencias.map(async (asistencia) => {
+        console.log(`Procesando asistencia:`, asistencia);
+        
         // Check if attendance record exists
         const { data: existing } = await supabase
           .from('asistencias')
@@ -86,14 +91,18 @@ export const useBulkUpdateAsistencias = () => {
           .eq('fecha', asistencia.fecha)
           .single();
 
+        console.log(`Registro existente:`, existing);
+
         if (existing) {
           // Update existing record
+          console.log(`Actualizando registro existente con estado: ${asistencia.estado}`);
           return supabase
             .from('asistencias')
             .update({ estado: asistencia.estado })
             .eq('id', existing.id);
         } else {
           // Create new record
+          console.log(`Creando nuevo registro con estado: ${asistencia.estado}`);
           return supabase
             .from('asistencias')
             .insert({
@@ -108,6 +117,10 @@ export const useBulkUpdateAsistencias = () => {
 
       const results = await Promise.all(updates);
       const errors = results.filter(result => result.error);
+      
+      console.log(`Resultados de la operación:`, results);
+      console.log(`Errores encontrados:`, errors);
+      console.log(`=== FIN DEBUG MUTACIÓN ===`);
       
       if (errors.length > 0) {
         throw new Error(`Failed to update ${errors.length} attendance records`);
@@ -136,6 +149,11 @@ export const useBulkUpdateAsistencias = () => {
     onSuccess: (_, variables) => {
       if (variables.length > 0) {
         const { materiaId, fecha, cursoId } = variables[0];
+        
+        console.log(`=== DEBUG INVALIDACIÓN CACHE ===`);
+        console.log(`Invalidando queries para:`, { materiaId, fecha, cursoId });
+        
+        // Invalidar todas las queries relacionadas
         queryClient.invalidateQueries({ 
           queryKey: ['asistencias', materiaId, fecha] 
         });
@@ -145,6 +163,24 @@ export const useBulkUpdateAsistencias = () => {
         queryClient.invalidateQueries({ 
           queryKey: ['asistencias-log', cursoId, materiaId, fecha] 
         });
+        
+        // Invalidar también el registro general
+        queryClient.invalidateQueries({ 
+          queryKey: ['registro-general'] 
+        });
+        
+        // Invalidar también el registro anual
+        queryClient.invalidateQueries({ 
+          queryKey: ['registro-anual'] 
+        });
+        
+        // Invalidar todas las queries de asistencias
+        queryClient.invalidateQueries({ 
+          queryKey: ['asistencias'] 
+        });
+        
+        console.log(`Cache invalidado correctamente`);
+        console.log(`=== FIN DEBUG INVALIDACIÓN ===`);
       }
       toast({
         title: "Asistencias guardadas",

@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { TableRow, TableCell } from '@/components/ui/table';
-import { X } from 'lucide-react';
+import { X, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Alumno, Materia } from '@/types/database';
 import { DiaSinClase } from '@/hooks/useDiasSinClase';
 import { calcularInasistenciasDia, calcularTotalPeriodo } from '@/utils/asistenciaCalculations';
 import { RegistroGeneralCell } from './RegistroGeneralCell';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface RegistroGeneralTableRowProps {
   alumno: Alumno;
@@ -30,8 +31,17 @@ export const RegistroGeneralTableRow = ({
   registroData,
   registroAnualData 
 }: RegistroGeneralTableRowProps) => {
+  const queryClient = useQueryClient();
+  
   const getDiaSinClaseForDate = (date: Date) => {
     return diasSinClase.find(d => d.fecha === format(date, 'yyyy-MM-dd'));
+  };
+
+  const handleRefreshCache = () => {
+    console.log('Forzando invalidación de cache...');
+    queryClient.invalidateQueries({ queryKey: ['registro-general'] });
+    queryClient.invalidateQueries({ queryKey: ['registro-anual'] });
+    queryClient.invalidateQueries({ queryKey: ['asistencias'] });
   };
 
   const totalMensual = calcularTotalPeriodo(
@@ -52,7 +62,16 @@ export const RegistroGeneralTableRow = ({
     <TableRow key={alumno.id}>
       <TableCell className="sticky left-0 bg-white border-r-2 border-gray-200 z-10 font-medium">
         <div className="flex flex-col">
-          <span>{alumno.apellido}, {alumno.nombre}</span>
+          <div className="flex items-center gap-2">
+            <span>{alumno.apellido}, {alumno.nombre}</span>
+            <button 
+              onClick={handleRefreshCache}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="Refrescar cache"
+            >
+              <RefreshCw className="h-3 w-3 text-gray-500" />
+            </button>
+          </div>
           <span className="text-xs text-gray-500">Grupo {alumno.grupo_taller}</span>
         </div>
       </TableCell>

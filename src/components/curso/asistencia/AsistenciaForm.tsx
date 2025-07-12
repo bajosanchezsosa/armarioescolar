@@ -173,16 +173,27 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
       // Determinar si este alumno está en un grupo marcado como "sin clase"
       const grupoSinClase = esTaller ? sinClaseGrupos[alumno.grupo_taller] : sinClase;
       
+      const estadoFinal = grupoSinClase ? 'P' : (asistencias[alumno.id] || 'P');
+      
+      // Logging para debug
+      console.log(`=== DEBUG GUARDAR ASISTENCIA ===`);
+      console.log(`Alumno: ${alumno.apellido}, ${alumno.nombre}`);
+      console.log(`Estado en formulario: ${asistencias[alumno.id] || 'P'}`);
+      console.log(`Grupo sin clase: ${grupoSinClase}`);
+      console.log(`Estado final a guardar: ${estadoFinal}`);
+      console.log(`=== FIN DEBUG GUARDAR ===`);
+      
       return {
         alumnoId: alumno.id,
         materiaId: selectedMateria,
         fecha: format(selectedDate, 'yyyy-MM-dd'),
-        estado: grupoSinClase ? 'P' : (asistencias[alumno.id] || 'P'),
+        estado: estadoFinal,
         userId: user.id,
         cursoId: cursoId,
       };
     });
 
+    console.log(`Datos a enviar:`, asistenciasToUpdate);
     bulkUpdateMutation.mutate(asistenciasToUpdate);
   };
 
