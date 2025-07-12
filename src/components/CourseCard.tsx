@@ -14,8 +14,20 @@ interface CourseCardProps {
 export const CourseCard = ({ curso, onClick }: CourseCardProps) => {
   const [showEditDialog, setShowEditDialog] = useState(false);
 
-  const getCourseColor = (anio: number) => {
-    const colors = [
+  const getCourseColor = (anio: number, division: string) => {
+    // Para cursos de 4° año en adelante, usar colores por orientación
+    if (anio >= 4) {
+      const orientacionColors: { [key: string]: string } = {
+        '1': 'border-l-blue-500 hover:border-l-blue-600', // Electromecánica
+        '2': 'border-l-green-500 hover:border-l-green-600', // Multimedios
+        '3': 'border-l-purple-500 hover:border-l-purple-600', // Administración de las Organizaciones
+        '4': 'border-l-orange-500 hover:border-l-orange-600' // Energías Renovables
+      };
+      return orientacionColors[division] || 'border-l-gray-500 hover:border-l-gray-600';
+    }
+    
+    // Para cursos de 1°, 2° y 3° año, mantener colores por año
+    const yearColors = [
       'border-l-blue-500 hover:border-l-blue-600',
       'border-l-green-500 hover:border-l-green-600', 
       'border-l-purple-500 hover:border-l-purple-600',
@@ -24,7 +36,7 @@ export const CourseCard = ({ curso, onClick }: CourseCardProps) => {
       'border-l-indigo-500 hover:border-l-indigo-600',
       'border-l-pink-500 hover:border-l-pink-600'
     ];
-    return colors[anio - 1] || colors[0];
+    return yearColors[anio - 1] || yearColors[0];
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -43,7 +55,7 @@ export const CourseCard = ({ curso, onClick }: CourseCardProps) => {
   return (
     <>
       <Card 
-        className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 border-l-4 ${getCourseColor(curso.anio)} bg-white relative group`}
+        className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105 border-l-4 ${getCourseColor(curso.anio, curso.division)} bg-white relative group`}
         onClick={handleCardClick}
       >
         <CardContent className="p-6">
