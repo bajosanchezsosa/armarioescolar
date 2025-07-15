@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Grid3X3, Calendar } from 'lucide-react';
-import { RegistroGeneralView } from '../registro-general/RegistroGeneralView';
+import RegistroGeneral from '../registro-general/RegistroGeneral';
 
 interface RegistroGeneralTabProps {
   cursoId: string;
@@ -22,8 +22,7 @@ export const RegistroGeneralTab = ({ cursoId }: RegistroGeneralTabProps) => {
           </p>
         </div>
       </div>
-
-      <RegistroGeneralView cursoId={cursoId} />
+      <RegistroGeneral cursoId={cursoId} />
     </div>
   );
 };

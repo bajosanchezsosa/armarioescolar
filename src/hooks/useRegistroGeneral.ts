@@ -34,6 +34,8 @@ export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => 
       console.log(`Total alumnos:`, alumnos?.length || 0);
 
       // Luego obtener todas las asistencias para las fechas especificadas
+      const alumnoIds = (alumnos || []).map(a => a.id);
+
       const { data: asistencias, error } = await supabase
         .from('asistencias')
         .select(`
@@ -54,8 +56,7 @@ export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => 
           )
         `)
         .in('fecha', fechas)
-        .eq('alumnos.curso_id', cursoId)
-        .eq('alumnos.activo', true);
+        .in('alumno_id', alumnoIds); // <--- filtro correcto por alumnos del curso
 
       if (error) throw error;
 
