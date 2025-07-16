@@ -29,3 +29,6 @@ CREATE INDEX IF NOT EXISTS idx_materias_pendientes_alumno_id ON public.materias_
 CREATE INDEX IF NOT EXISTS idx_materias_pendientes_materia_original_id ON public.materias_pendientes(materia_original_id);
 CREATE INDEX IF NOT EXISTS idx_materias_pendientes_vinculada_con_materia_id ON public.materias_pendientes(vinculada_con_materia_id);
 CREATE INDEX IF NOT EXISTS idx_materias_pendientes_estado ON public.materias_pendientes(estado); 
+
+ALTER TABLE asistencias
+ADD CONSTRAINT asistencia_unica UNIQUE (alumno_id, materia_id, fecha); 

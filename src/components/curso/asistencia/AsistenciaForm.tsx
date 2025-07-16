@@ -172,9 +172,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
     const asistenciasToUpdate = alumnos.map(alumno => {
       // Determinar si este alumno está en un grupo marcado como "sin clase"
       const grupoSinClase = esTaller ? sinClaseGrupos[alumno.grupo_taller] : sinClase;
-      
       const estadoFinal = grupoSinClase ? 'SC' : (asistencias[alumno.id] || 'P');
-      
       // Logging para debug
       console.log(`=== DEBUG GUARDAR ASISTENCIA ===`);
       console.log(`Alumno: ${alumno.apellido}, ${alumno.nombre}`);
@@ -182,7 +180,6 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
       console.log(`Grupo sin clase: ${grupoSinClase}`);
       console.log(`Estado final a guardar: ${estadoFinal}`);
       console.log(`=== FIN DEBUG GUARDAR ===`);
-      
       return {
         alumnoId: alumno.id,
         materiaId: selectedMateria,
@@ -194,7 +191,14 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
     });
 
     console.log(`Datos a enviar:`, asistenciasToUpdate);
-    bulkUpdateMutation.mutate(asistenciasToUpdate);
+    bulkUpdateMutation.mutate(asistenciasToUpdate, {
+      onSuccess: (data) => {
+        console.log('✅ Asistencias guardadas en Supabase:', data);
+      },
+      onError: (error) => {
+        console.error('❌ Error al guardar asistencias en Supabase:', error);
+      }
+    });
   };
 
   const contarEstados = () => {

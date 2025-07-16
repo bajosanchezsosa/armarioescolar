@@ -76,34 +76,40 @@ export const useBulkUpdateAsistencias = () => {
 
   return useMutation({
     mutationFn: async (asistencias: Array<{ alumnoId: string; materiaId: string; fecha: string; estado: EstadoAsistencia; userId: string; cursoId: string }>) => {
-      console.log(`=== DEBUG MUTACIÓN ASISTENCIAS ===`);
+      console.log(`=== DEBUG MUTACIÓN ASISTENCIAS (UPSERT) ===`);
       console.log(`Datos recibidos:`, asistencias);
-      
-      const updates = asistencias.map(async (asistencia) => {
-        console.log(`Procesando asistencia:`, asistencia);
-        
-        // Check if attendance record exists
-        const { data: existing } = await supabase
+
+      // Preparamos los datos para update/insert
+      const results = [];
+      for (const asistencia of asistencias) {
+        // Buscar si ya existe el registro
+        const { data: existing, error: selectError } = await supabase
           .from('asistencias')
           .select('id')
           .eq('alumno_id', asistencia.alumnoId)
           .eq('materia_id', asistencia.materiaId)
           .eq('fecha', asistencia.fecha)
-          .single();
-
-        console.log(`Registro existente:`, existing);
-
+          .maybeSingle();
+        if (selectError) {
+          console.error('❌ Error consultando asistencia existente:', selectError);
+          results.push({ error: selectError });
+          continue;
+        }
         if (existing) {
-          // Update existing record
-          console.log(`Actualizando registro existente con estado: ${asistencia.estado}`);
-          return supabase
+          // Si existe, actualizar solo el campo estado
+          const { data: updateData, error: updateError } = await supabase
             .from('asistencias')
             .update({ estado: asistencia.estado })
             .eq('id', existing.id);
+          if (updateError) {
+            console.error('❌ Error actualizando asistencia:', updateError);
+            results.push({ error: updateError });
+          } else {
+            results.push({ data: updateData });
+          }
         } else {
-          // Create new record
-          console.log(`Creando nuevo registro con estado: ${asistencia.estado}`);
-          return supabase
+          // Si no existe, insertar el registro completo
+          const { data: insertData, error: insertError } = await supabase
             .from('asistencias')
             .insert({
               alumno_id: asistencia.alumnoId,
@@ -112,27 +118,24 @@ export const useBulkUpdateAsistencias = () => {
               estado: asistencia.estado,
               user_id: asistencia.userId,
             });
+          if (insertError) {
+            console.error('❌ Error insertando asistencia:', insertError);
+            results.push({ error: insertError });
+          } else {
+            results.push({ data: insertData });
+          }
         }
-      });
-
-      const results = await Promise.all(updates);
-      const errors = results.filter(result => result.error);
-      
-      console.log(`Resultados de la operación:`, results);
-      console.log(`Errores encontrados:`, errors);
-      console.log(`=== FIN DEBUG MUTACIÓN ===`);
-      
-      if (errors.length > 0) {
-        throw new Error(`Failed to update ${errors.length} attendance records`);
       }
 
-      // Create log entry after successful attendance update
+      if (results.some(r => r.error)) {
+        console.error('Error en upsert de asistencias:', results.find(r => r.error)?.error);
+        throw results.find(r => r.error)?.error || new Error('Error desconocido en upsert de asistencias');
+      }
+
+      // Crear log entry después de actualizar asistencias
       if (asistencias.length > 0 && user) {
         const { materiaId, fecha, cursoId } = asistencias[0];
-        
-        // Get user name from user_metadata or use email as fallback
         const userName = user.user_metadata?.nombre || user.email?.split('@')[0] || 'Usuario';
-        
         await supabase
           .from('asistencias_log')
           .insert({
@@ -144,43 +147,19 @@ export const useBulkUpdateAsistencias = () => {
           });
       }
 
-      return results;
+      // Al final de la mutación, devolver solo los datos exitosos (array plano)
+      return results.filter(r => r.data).map(r => r.data).flat();
     },
     onSuccess: (_, variables) => {
       if (variables.length > 0) {
         const { materiaId, fecha, cursoId } = variables[0];
-        
-        console.log(`=== DEBUG INVALIDACIÓN CACHE ===`);
-        console.log(`Invalidando queries para:`, { materiaId, fecha, cursoId });
-        
         // Invalidar todas las queries relacionadas
-        queryClient.invalidateQueries({ 
-          queryKey: ['asistencias', materiaId, fecha] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ['asistencias-curso'] 
-        });
-        queryClient.invalidateQueries({ 
-          queryKey: ['asistencias-log', cursoId, materiaId, fecha] 
-        });
-        
-        // Invalidar también el registro general
-        queryClient.invalidateQueries({ 
-          queryKey: ['registro-general'] 
-        });
-        
-        // Invalidar también el registro anual
-        queryClient.invalidateQueries({ 
-          queryKey: ['registro-anual'] 
-        });
-        
-        // Invalidar todas las queries de asistencias
-        queryClient.invalidateQueries({ 
-          queryKey: ['asistencias'] 
-        });
-        
-        console.log(`Cache invalidado correctamente`);
-        console.log(`=== FIN DEBUG INVALIDACIÓN ===`);
+        queryClient.invalidateQueries({ queryKey: ['asistencias', materiaId, fecha] });
+        queryClient.invalidateQueries({ queryKey: ['asistencias-curso'] });
+        queryClient.invalidateQueries({ queryKey: ['asistencias-log', cursoId, materiaId, fecha] });
+        queryClient.invalidateQueries({ queryKey: ['registro-general'] });
+        queryClient.invalidateQueries({ queryKey: ['registro-anual'] });
+        queryClient.invalidateQueries({ queryKey: ['asistencias'] });
       }
       toast({
         title: "Asistencias guardadas",

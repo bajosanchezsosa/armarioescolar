@@ -2,40 +2,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Asistencia } from '@/types/database';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 
-export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => {
+export const useRegistroGeneralData = (cursoId: string, mes: number, anio: number) => {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['registro-general', cursoId, workingDays.map(d => format(d, 'yyyy-MM-dd'))],
+    queryKey: ['registro-general', cursoId, mes, anio],
     queryFn: async (): Promise<Record<string, Asistencia[]>> => {
-      if (!user || workingDays.length === 0) {
-        throw new Error('Usuario no autenticado o sin días válidos');
+      if (!user) {
+        throw new Error('Usuario no autenticado');
       }
 
-      const fechas = workingDays.map(day => format(day, 'yyyy-MM-dd'));
-      
       console.log(`=== DEBUG REGISTRO GENERAL ===`);
       console.log(`Curso ID: ${cursoId}`);
-      console.log(`Fechas a consultar:`, fechas);
+      console.log(`Mes: ${mes}, Año: ${anio}`);
       
-      // Primero obtener todos los alumnos del curso
-      const { data: alumnos, error: errorAlumnos } = await supabase
-        .from('alumnos')
-        .select('id, nombre, apellido, activo, grupo_taller, curso_id')
-        .eq('curso_id', cursoId)
-        .eq('activo', true);
-
-      if (errorAlumnos) throw errorAlumnos;
-
-      console.log(`Alumnos del curso:`, alumnos);
-      console.log(`Total alumnos:`, alumnos?.length || 0);
-
-      // Luego obtener todas las asistencias para las fechas especificadas
-      const alumnoIds = (alumnos || []).map(a => a.id);
-
+      // Calcular rango de fechas del mes
+      const monthStart = startOfMonth(new Date(anio, mes - 1, 1));
+      const monthEnd = endOfMonth(new Date(anio, mes - 1, 1));
+      
+      // Obtener todas las asistencias del mes para el curso
       const { data: asistencias, error } = await supabase
         .from('asistencias')
         .select(`
@@ -55,25 +43,30 @@ export const useRegistroGeneralData = (cursoId: string, workingDays: Date[]) => 
             curso_id
           )
         `)
-        .in('fecha', fechas)
-        .in('alumno_id', alumnoIds); // <--- filtro correcto por alumnos del curso
+        .gte('fecha', format(monthStart, 'yyyy-MM-dd'))
+        .lte('fecha', format(monthEnd, 'yyyy-MM-dd'))
+        .eq('alumnos.curso_id', cursoId)
+        .eq('alumnos.activo', true);
 
       if (error) throw error;
 
-      console.log(`Datos obtenidos de la BD:`, asistencias);
       console.log(`Total de registros de asistencia:`, asistencias?.length || 0);
 
       // Agrupar por fecha
       const result: Record<string, Asistencia[]> = {};
       
-      fechas.forEach(fecha => {
-        result[fecha] = (asistencias || []).filter(asistencia => asistencia.fecha === fecha);
-        console.log(`Asistencias para ${fecha}:`, result[fecha]);
-      });
+      if (asistencias) {
+        asistencias.forEach(asistencia => {
+          if (!result[asistencia.fecha]) {
+            result[asistencia.fecha] = [];
+          }
+          result[asistencia.fecha].push(asistencia);
+        });
+      }
 
       console.log(`=== FIN DEBUG REGISTRO GENERAL ===`);
       return result;
     },
-    enabled: !!user && !!cursoId && workingDays.length > 0,
+    enabled: !!user && !!cursoId && mes > 0 && mes <= 12 && anio > 0,
   });
 };
