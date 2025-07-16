@@ -184,9 +184,12 @@ const RegistroGeneralNuevo: React.FC<RegistroGeneralNuevoProps> = ({ cursoId }) 
     const tipos = new Set<string>();
     materias.forEach(materia => {
       const modulos = modulosPorMateria[materia.id] || [];
-      const diaSemana = new Date(fecha).getDay();
+      // Cálculo local del día de la semana (igual que en getMateriasYAlumnosDelDia)
+      const [year, month, day] = fecha.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      const diaSemana = date.getDay();
       const diaSemanaAjustado = diaSemana === 0 ? 7 : diaSemana;
-      const tieneModulo = modulos.some(mod => mod.dia_semana === diaSemanaAjustado);
+      const tieneModulo = modulos.some(mod => Number(mod.dia_semana) === diaSemanaAjustado);
       if (tieneModulo) {
         tipos.add(materia.tipo);
       }
