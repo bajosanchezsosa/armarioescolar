@@ -115,17 +115,22 @@ export const calcularInasistenciasDetalleDia = (
     return { valor: 0, tipos: [], color: 'text-gray-400', tipo: 'vacio' as const };
   }
 
+  // Nueva lógica:
   if (tiposAusentes.size === 0 && tiposDelDia.size > 0) {
     console.log('[ASISTENCIA] Resultado: presente-todo');
     return { valor: 0, tipos: [], color: 'text-green-600', tipo: 'presente-todo' as const };
   }
 
   if (tiposAusentes.size > 0) {
-    const valor = Math.min(0.5 * tiposAusentes.size, 1);
-    let color = valor === 1 ? 'text-red-600' : 'text-orange-600';
-    let tipo = valor === 1 ? 'ausente-todo' as const : 'ausente-algunas' as const;
-    console.log('[ASISTENCIA] Resultado: ausente', { valor, tipos: Array.from(tiposAusentes), color, tipo });
-    return { valor, tipos: Array.from(tiposAusentes), color, tipo };
+    // Si está ausente en TODOS los tipos del día => inasistencia entera
+    if (tiposAusentes.size === tiposDelDia.size) {
+      console.log('[ASISTENCIA] Resultado: ausente-todo (inasistencia entera)');
+      return { valor: 1, tipos: Array.from(tiposAusentes), color: 'text-red-600', tipo: 'ausente-todo' as const };
+    } else {
+      // Si está ausente en al menos un tipo pero presente en otros => media inasistencia
+      console.log('[ASISTENCIA] Resultado: ausente-algunas (media inasistencia)');
+      return { valor: 0.5, tipos: Array.from(tiposAusentes), color: 'text-orange-600', tipo: 'ausente-algunas' as const };
+    }
   }
 
   const tardanzas = Object.values(estadosPorMateria).filter(a => a && a.estado && a.estado.trim().toUpperCase() === 'T').length;
@@ -206,10 +211,13 @@ export function calcularEstadoAsistenciaGeneral({
   }
 
   if (tiposAusentes.size > 0) {
-    const valor = Math.min(0.5 * tiposAusentes.size, 1);
-    let color = valor === 1 ? 'text-red-600' : 'text-orange-600';
-    let tipo: 'ausente-todo' | 'ausente-algunas' = valor === 1 ? 'ausente-todo' : 'ausente-algunas';
-    return { valor, tipos: Array.from(tiposAusentes), color, tipo };
+    if (tiposAusentes.size === tiposDelDia.size) {
+      // Ausente en todos los tipos
+      return { valor: 1, tipos: Array.from(tiposAusentes), color: 'text-red-600', tipo: 'ausente-todo' };
+    } else {
+      // Ausente en algunos tipos pero presente en otros
+      return { valor: 0.5, tipos: Array.from(tiposAusentes), color: 'text-orange-600', tipo: 'ausente-algunas' };
+    }
   }
 
   // Si solo hay tardanzas o justificadas, se considera presente
