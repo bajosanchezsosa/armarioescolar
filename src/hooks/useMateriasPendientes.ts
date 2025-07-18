@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { CalificadorTab } from './tabs/CalificadorTab';
 
 export const useMateriasPendientes = (cursoId: string) => {
   const { user } = useAuth();
@@ -82,17 +83,21 @@ export const useMateriasPendientes = (cursoId: string) => {
 
       // Obtener información de materias vinculadas
       const materiaVinculadaIds = materiasPendientes
-        .map(mp => mp.vinculada_con_materia_id)
-        .filter(id => id !== null);
-      
-      const { data: materiasVinculadas, error: errorMateriasVinculadas } = await supabase
-        .from('materias')
-        .select('id, nombre, curso_id')
-        .in('id', materiaVinculadaIds);
+        .map(mp => mp.materia_destino_id)
+        .filter(id => !!id);
 
-      if (errorMateriasVinculadas) {
-        console.error('Error fetching materias vinculadas:', errorMateriasVinculadas);
-        throw errorMateriasVinculadas;
+      let materiasVinculadas = [];
+      if (materiaVinculadaIds.length > 0) {
+        const { data, error: errorMateriasVinculadas } = await supabase
+          .from('materias')
+          .select('id, nombre, curso_id')
+          .in('id', materiaVinculadaIds);
+
+        if (errorMateriasVinculadas) {
+          console.error('Error fetching materias vinculadas:', errorMateriasVinculadas);
+          throw errorMateriasVinculadas;
+        }
+        materiasVinculadas = data || [];
       }
 
       // Combinar toda la información
@@ -100,7 +105,7 @@ export const useMateriasPendientes = (cursoId: string) => {
         ...mp,
         alumno: alumnosCompletos?.find(a => a.id === mp.alumno_id),
         materia_original: materiasOriginales?.find(m => m.id === mp.materia_original_id),
-        materia_vinculada: materiasVinculadas?.find(m => m.id === mp.vinculada_con_materia_id)
+        materia_vinculada: materiasVinculadas?.find(m => m.id === mp.materia_destino_id)
       }));
 
       console.log('Materias pendientes completas:', materiasPendientesCompletas);
@@ -118,14 +123,14 @@ export const useVincularMateria = () => {
   return useMutation({
     mutationFn: async ({
       materiaPendienteId,
-      materiaVinculadaId,
-      tipoVinculacion,
-      observaciones
+      materiaDestinoId,
+      tipo,
+      contenidosPendientes,
     }: {
       materiaPendienteId: string;
-      materiaVinculadaId: string;
-      tipoVinculacion: 'intensificacion' | 'recursa';
-      observaciones?: string;
+      materiaDestinoId: string;
+      tipo: 'intensificacion' | 'recursa';
+      contenidosPendientes?: string;
     }) => {
       if (!user) {
         throw new Error('Usuario no autenticado');
@@ -134,9 +139,9 @@ export const useVincularMateria = () => {
       const { data, error } = await supabase
         .from('materias_pendientes')
         .update({
-          vinculada_con_materia_id: materiaVinculadaId,
-          tipo_vinculacion: tipoVinculacion,
-          observaciones: observaciones || null,
+          materia_destino_id: materiaDestinoId,
+          tipo: tipo,
+          contenidos_pendientes: contenidosPendientes || null,
           actualizado_en: new Date().toISOString(),
         })
         .eq('id', materiaPendienteId)
@@ -176,34 +181,38 @@ export const useCrearMateriaPendiente = () => {
     mutationFn: async ({
       alumnoId,
       materiaOriginalId,
-      anioOrigen,
-      observaciones
+      cursoOrigenId,
+      cursoDestinoId,
+      anioLectivo,
+      observaciones,
+      materiaDestinoId,
+      tipo,
     }: {
       alumnoId: string;
       materiaOriginalId: string;
-      anioOrigen: number;
+      cursoOrigenId: string;
+      cursoDestinoId: string;
+      anioLectivo: number;
       observaciones?: string;
+      materiaDestinoId?: string;
+      tipo: 'intensificacion' | 'recursa';
     }) => {
       if (!user) {
         throw new Error('Usuario no autenticado');
       }
-
-      console.log('Creando materia pendiente:', {
-        alumnoId,
-        materiaOriginalId,
-        anioOrigen,
-        observaciones
-      });
 
       const { data, error } = await supabase
         .from('materias_pendientes')
         .insert({
           alumno_id: alumnoId,
           materia_original_id: materiaOriginalId,
-          anio_origen: anioOrigen,
+          curso_origen_id: cursoOrigenId,
+          curso_destino_id: cursoDestinoId,
+          materia_destino_id: materiaDestinoId || null,
+          tipo: tipo,
+          contenidos_pendientes: observaciones || null,
+          anio_lectivo: anioLectivo,
           estado: 'pendiente',
-          observaciones: observaciones || null,
-          creado_por_id: user.id,
         })
         .select()
         .single();
@@ -213,7 +222,6 @@ export const useCrearMateriaPendiente = () => {
         throw error;
       }
 
-      console.log('Materia pendiente creada:', data);
       return data;
     },
     onSuccess: () => {
@@ -269,6 +277,59 @@ export const useEliminarMateriaPendiente = () => {
       toast({
         title: "Error al eliminar materia pendiente",
         description: "No se pudo eliminar la materia pendiente",
+        variant: "destructive",
+      });
+    },
+  });
+}; 
+
+export const useActualizarEstadoMateria = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      materiaPendienteId,
+      estado,
+      notaFinal,
+    }: {
+      materiaPendienteId: string;
+      estado: 'aprobada' | 'pendiente' | 'en_curso';
+      notaFinal?: number;
+    }) => {
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const { data, error } = await supabase
+        .from('materias_pendientes')
+        .update({
+          estado,
+          nota_final: notaFinal,
+          actualizado_en: new Date().toISOString(),
+        })
+        .eq('id', materiaPendienteId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error actualizando estado de materia:', error);
+        throw error;
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Materia actualizada exitosamente",
+      });
+      queryClient.invalidateQueries({ queryKey: ['materias-pendientes'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error al actualizar materia",
+        description: "No se pudo actualizar el estado de la materia",
         variant: "destructive",
       });
     },

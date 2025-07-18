@@ -10,6 +10,18 @@ import {
   BookOpen,
   Trash2
 } from 'lucide-react';
+import { useCursos } from '@/hooks/useCursos';
+import { useActualizarEstadoMateria } from '@/hooks/useMateriasPendientes';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import React from 'react';
 
 interface MateriasPendientesListProps {
   materiasPendientes: any[];
@@ -19,6 +31,7 @@ interface MateriasPendientesListProps {
   onEliminar: (materiaPendienteId: string) => void;
   showVinculadas?: boolean;
   isDeleting?: boolean;
+  onAprobar?: (materiaPendienteId: string, nota: number) => void;
 }
 
 export const MateriasPendientesList = ({
@@ -28,8 +41,15 @@ export const MateriasPendientesList = ({
   onVincular,
   onEliminar,
   showVinculadas = false,
-  isDeleting = false
+  isDeleting = false,
+  onAprobar
 }: MateriasPendientesListProps) => {
+  const [showAprobarDialog, setShowAprobarDialog] = React.useState(false);
+  const [selectedMateria, setSelectedMateria] = React.useState<any>(null);
+  const [notaFinal, setNotaFinal] = React.useState('');
+  const { data: cursos } = useCursos();
+  const actualizarEstado = useActualizarEstadoMateria();
+  
   const getAlumnoName = (alumnoId: string) => {
     const alumno = alumnos.find(a => a.id === alumnoId);
     return alumno ? `${alumno.apellido}, ${alumno.nombre}` : 'Alumno no encontrado';
@@ -38,6 +58,11 @@ export const MateriasPendientesList = ({
   const getMateriaName = (materiaId: string) => {
     const materia = materias.find(m => m.id === materiaId);
     return materia ? materia.nombre : 'Materia no encontrada';
+  };
+
+  const getCursoName = (cursoId: string) => {
+    const curso = cursos?.find(c => c.id === cursoId);
+    return curso ? `${curso.anio}° ${curso.division} - ${curso.turno}` : cursoId;
   };
 
   const getEstadoBadge = (estado: string) => {
@@ -50,6 +75,30 @@ export const MateriasPendientesList = ({
         return <Badge variant="secondary" className="bg-green-100 text-green-800">Aprobada</Badge>;
       default:
         return <Badge variant="secondary">Sin Estado</Badge>;
+    }
+  };
+
+  const handleAprobarClick = (materia: any) => {
+    setSelectedMateria(materia);
+    setShowAprobarDialog(true);
+  };
+
+  const handleConfirmarAprobacion = () => {
+    if (selectedMateria && notaFinal) {
+      actualizarEstado.mutate(
+        {
+          materiaPendienteId: selectedMateria.id,
+          estado: 'aprobada',
+          notaFinal: parseFloat(notaFinal),
+        },
+        {
+          onSuccess: () => {
+            setShowAprobarDialog(false);
+            setNotaFinal('');
+            setSelectedMateria(null);
+          },
+        }
+      );
     }
   };
 
@@ -85,6 +134,24 @@ export const MateriasPendientesList = ({
                     <Link className="h-4 w-4 text-green-500" />
                     <span className="text-gray-700">
                       <strong>Vinculada con:</strong> {materiaPendiente.materia_vinculada?.nombre || getMateriaName(materiaPendiente.vinculada_con_materia_id)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Tipo de vinculación */}
+                {materiaPendiente.tipo_vinculacion && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">
+                      {materiaPendiente.tipo_vinculacion === 'intensificacion' ? 'Intensificación' : 'Recursa'}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Curso destino */}
+                {materiaPendiente.curso_destino_id && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-700">
+                      <strong>Curso destino:</strong> {getCursoName(materiaPendiente.curso_destino_id)}
                     </span>
                   </div>
                 )}
@@ -131,6 +198,16 @@ export const MateriasPendientesList = ({
                   </Button>
                 )}
 
+                {materiaPendiente.estado !== 'aprobada' && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleAprobarClick(materiaPendiente)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Aprobar
+                  </Button>
+                )}
+
                 {/* Botón de eliminar */}
                 <Button
                   size="sm"
@@ -147,6 +224,28 @@ export const MateriasPendientesList = ({
           </CardContent>
         </Card>
       ))}
+      <Dialog open={showAprobarDialog} onOpenChange={setShowAprobarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprobar Materia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Estás por aprobar la materia <strong>{selectedMateria?.materia_original?.nombre}</strong> para el alumno <strong>{getAlumnoName(selectedMateria?.alumno_id)}</strong>.</p>
+            <div>
+              <Label htmlFor="notaFinal">Nota Final</Label>
+              <Input
+                id="notaFinal"
+                type="number"
+                value={notaFinal}
+                onChange={(e) => setNotaFinal(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleConfirmarAprobacion} disabled={actualizarEstado.isPending}>
+              {actualizarEstado.isPending ? 'Guardando...' : 'Confirmar Aprobación'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 

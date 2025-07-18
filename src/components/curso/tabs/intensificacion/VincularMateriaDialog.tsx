@@ -55,16 +55,13 @@ export const VincularMateriaDialog = ({
     try {
       await vincularMateria.mutateAsync({
         materiaPendienteId: materiaPendiente.id,
-        materiaVinculadaId,
-        tipoVinculacion,
-        observaciones: observaciones.trim() || undefined,
+        materiaDestinoId: materiaVinculadaId,
+        tipo: tipoVinculacion as 'intensificacion' | 'recursa',
+        contenidosPendientes: observaciones.trim() || undefined,
       });
       
       onOpenChange(false);
-      setMateriaVinculadaId('');
-      setTipoVinculacion('');
-      setObservaciones('');
-      setCursoSeleccionado(cursoId);
+      resetForm();
     } catch (error) {
       console.error('Error al vincular materia:', error);
     }
@@ -72,6 +69,10 @@ export const VincularMateriaDialog = ({
 
   const handleClose = () => {
     onOpenChange(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setMateriaVinculadaId('');
     setTipoVinculacion('');
     setObservaciones('');

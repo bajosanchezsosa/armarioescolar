@@ -1,4 +1,5 @@
 
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -195,5 +196,35 @@ export const useBulkCreateNotas = () => {
       console.error('Error creating bulk notas:', error);
       toast.error('Error al crear las notas');
     },
+  });
+};
+
+export const useNotasPorAlumno = (cursoId: string, alumnoId: string) => {
+  return useQuery({
+    queryKey: ['notas-alumno', cursoId, alumnoId],
+    queryFn: async () => {
+      console.log('Fetching notas for alumno:', alumnoId, 'curso:', cursoId);
+      
+      const { data, error } = await supabase
+        .from('notas')
+        .select(`
+          *,
+          alumno:alumnos(nombre, apellido),
+          materia:materias(nombre),
+          periodo:periodos_notas(nombre, descripcion)
+        `)
+        .eq('curso_id', cursoId)
+        .eq('alumno_id', alumnoId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching notas por alumno:', error);
+        throw error;
+      }
+
+      console.log('Notas del alumno fetched:', data?.length || 0);
+      return data as (Nota & { periodo?: { nombre: string; descripcion?: string } })[];
+    },
+    enabled: !!cursoId && !!alumnoId,
   });
 };

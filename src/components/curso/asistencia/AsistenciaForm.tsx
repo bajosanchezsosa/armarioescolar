@@ -13,6 +13,8 @@ import { GroupedAttendanceTable } from './GroupedAttendanceTable';
 import { MobileGroupedAttendance } from './MobileGroupedAttendance';
 import { ClassStatusControls } from './ClassStatusControls';
 import { AsistenciaFooter } from './AsistenciaFooter';
+import { useMateriasPendientes } from '@/hooks/useMateriasPendientes';
+import { Badge } from '@/components/ui/badge';
 
 interface AsistenciaFormProps {
   materias: Materia[];
@@ -77,6 +79,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
   );
   
   const bulkUpdateMutation = useBulkUpdateAsistencias();
+  const { data: materiasPendientes = [] } = useMateriasPendientes(cursoId);
 
 
   // Determinar si es un taller (requiere separación por grupos)
@@ -84,6 +87,22 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
   
   // Obtener grupos únicos para esta materia (solo los que tienen clase hoy)
   const gruposUnicos = gruposConClaseHoy;
+
+  // Alumnos recursantes para la materia seleccionada
+  const recursantes = materiasPendientes.filter(mp =>
+    mp.tipo_vinculacion === 'recursa' &&
+    mp.vinculada_con_materia_id === selectedMateria &&
+    mp.curso_destino_id === cursoId &&
+    mp.estado === 'pendiente'
+  ).map(mp => mp.alumno);
+
+  // Unir alumnos regulares y recursantes (sin duplicados)
+  const alumnosConRecursantes = [
+    ...alumnos,
+    ...recursantes.filter(
+      rec => !alumnos.some(a => a.id === rec.id)
+    )
+  ];
 
   // Initialize attendance with "P" for all students by default
   useEffect(() => {
@@ -243,7 +262,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
         </div>
       )}
 
-      {selectedMateria && alumnos.length > 0 && materiasDelDia.length > 0 && (
+      {selectedMateria && alumnosConRecursantes.length > 0 && materiasDelDia.length > 0 && (
         <>
           <AsistenciaStats
             presentes={estadisticas.presentes}
@@ -294,7 +313,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
               // Para clases y EF, mostrar todo junto
               isMobile ? (
                 <MobileGroupedAttendance
-                  alumnos={alumnos}
+                  alumnos={alumnosConRecursantes}
                   asistencias={asistencias}
                   onEstadoChange={handleEstadoChange}
                   grupo="todos"
@@ -302,7 +321,7 @@ export const AsistenciaForm = ({ materias, alumnos, cursoId }: AsistenciaFormPro
                 />
               ) : (
                 <GroupedAttendanceTable
-                  alumnos={alumnos}
+                  alumnos={alumnosConRecursantes}
                   asistencias={asistencias}
                   onEstadoChange={handleEstadoChange}
                   grupo="todos"

@@ -9,6 +9,7 @@ import { ActasTab } from './tabs/ActasTab';
 import { RegistroGeneralTab } from './tabs/RegistroGeneralTab';
 import { IntensificacionTab } from './tabs/IntensificacionTab';
 import { useCurso } from '@/hooks/useCurso';
+import { CalificadorTab } from './tabs/CalificadorTab';
 
 interface CourseTabsProps {
   cursoId: string;
@@ -20,7 +21,7 @@ export const CourseTabs = ({ cursoId }: CourseTabsProps) => {
 
   return (
     <Tabs defaultValue="alumnos" className="w-full">
-      <TabsList className={`grid w-full ${showIntensificacion ? 'grid-cols-7' : 'grid-cols-6'} h-14 bg-white border border-gray-200 rounded-lg p-2`}>
+      <TabsList className={`grid w-full ${showIntensificacion ? 'grid-cols-8' : 'grid-cols-7'} h-14 bg-white border border-gray-200 rounded-lg p-2`}>
         <TabsTrigger 
           value="alumnos" 
           className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -63,6 +64,13 @@ export const CourseTabs = ({ cursoId }: CourseTabsProps) => {
           <ClipboardList className="h-4 w-4" />
           <span className="hidden sm:inline">Actas</span>
         </TabsTrigger>
+        <TabsTrigger 
+          value="calificador" 
+          className="flex items-center gap-2 data-[state=active]:bg-pink-600 data-[state=active]:text-white"
+        >
+          <FileText className="h-4 w-4" />
+          <span className="hidden sm:inline">Calificador</span>
+        </TabsTrigger>
         {showIntensificacion && (
           <TabsTrigger 
             value="intensificacion" 
@@ -97,6 +105,10 @@ export const CourseTabs = ({ cursoId }: CourseTabsProps) => {
 
         <TabsContent value="actas" className="space-y-6">
           <ActasTab cursoId={cursoId} />
+        </TabsContent>
+
+        <TabsContent value="calificador" className="space-y-6">
+          <CalificadorTab cursoId={cursoId} />
         </TabsContent>
 
         {showIntensificacion && (

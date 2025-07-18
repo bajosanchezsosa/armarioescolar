@@ -10,6 +10,8 @@ import { ArrowRight, GraduationCap } from 'lucide-react';
 import { Alumno, Curso } from '@/types/database';
 import { useCursos } from '@/hooks/useCursos';
 import { usePromociones } from '@/hooks/usePromociones';
+import { useMaterias } from '@/hooks/useMateriaQueries';
+import { useCrearMateriaPendiente } from '@/hooks/useMateriasPendientes';
 
 interface PromocionAlumnoProps {
   alumno: Alumno;
@@ -21,9 +23,24 @@ interface PromocionAlumnoProps {
 export const PromocionAlumno = ({ alumno, cursoActual, isOpen, onClose }: PromocionAlumnoProps) => {
   const [cursoDestinoId, setCursoDestinoId] = useState<string>('');
   const [observaciones, setObservaciones] = useState('');
-  
+  const [materiasSeleccion, setMateriasSeleccion] = useState<any[]>([]);
   const { data: cursos } = useCursos();
+  const { data: materiasCursoActual } = useMaterias(cursoActual.id);
   const { promoverAlumno } = usePromociones();
+  const crearMateriaPendiente = useCrearMateriaPendiente();
+  const { data: materiasCursoDestino } = useMaterias(cursoDestinoId);
+
+  // Inicializar selección de materias al abrir el diálogo
+  React.useEffect(() => {
+    if (materiasCursoActual && materiasSeleccion.length === 0) {
+      setMateriasSeleccion(materiasCursoActual.map((m: any) => ({
+        materia: m,
+        accion: 'promueve', // opciones: promueve, intensifica, recursa
+        materiaDestinoId: '',
+        contenidosPendientes: '',
+      })));
+    }
+  }, [materiasCursoActual, isOpen]);
 
   // Filtrar cursos disponibles (excluir el actual)
   const cursosDisponibles = cursos?.filter(curso => 
@@ -52,23 +69,38 @@ export const PromocionAlumno = ({ alumno, cursoActual, isOpen, onClose }: Promoc
     !cursosSugeridos.some(sugerido => sugerido.id === curso.id)
   );
 
-  const handlePromocion = () => {
-    if (!cursoDestinoId) return;
+  const handleMateriaChange = (idx: number, field: string, value: any) => {
+    setMateriasSeleccion(prev => prev.map((item, i) =>
+      i === idx ? { ...item, [field]: value } : item
+    ));
+  };
 
-    promoverAlumno.mutate(
-      {
-        alumno_id: alumno.id,
-        curso_destino_id: cursoDestinoId,
-        observaciones: observaciones.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setCursoDestinoId('');
-          setObservaciones('');
-          onClose();
-        },
+  const handlePromocion = async () => {
+    if (!cursoDestinoId) return;
+    // Promover alumno
+    await promoverAlumno.mutateAsync({
+      alumno_id: alumno.id,
+      curso_destino_id: cursoDestinoId,
+      observaciones: observaciones.trim() || undefined,
+    });
+    // Registrar materias pendientes
+    for (const item of materiasSeleccion) {
+      if (item.accion === 'intensifica' || item.accion === 'recursa') {
+        await crearMateriaPendiente.mutateAsync({
+          alumnoId: alumno.id,
+          materiaOriginalId: item.materia.id,
+          anioOrigen: cursoActual.anio,
+          observaciones: item.contenidosPendientes,
+          materiaDestinoId: item.materiaDestinoId,
+          tipo: item.accion,
+          cursoDestinoId: cursoDestinoId,
+        });
       }
-    );
+    }
+    setCursoDestinoId('');
+    setObservaciones('');
+    setMateriasSeleccion([]);
+    onClose();
   };
 
   const formatCurso = (curso: Curso) => 
@@ -139,6 +171,55 @@ export const PromocionAlumno = ({ alumno, cursoActual, isOpen, onClose }: Promoc
               </SelectContent>
             </Select>
           </div>
+
+          {/* Selección de materias y acción */}
+          {materiasSeleccion.length > 0 && (
+            <div className="space-y-4">
+              <h4 className="font-semibold">Materias del curso actual</h4>
+              {materiasSeleccion.map((item, idx) => (
+                <div key={item.materia.id} className="border rounded p-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-medium">{item.materia.nombre}</span>
+                    <Select value={item.accion} onValueChange={v => handleMateriaChange(idx, 'accion', v)}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="promueve">Promueve</SelectItem>
+                        <SelectItem value="intensifica">Intensifica</SelectItem>
+                        <SelectItem value="recursa">Recursa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(item.accion === 'intensifica' || item.accion === 'recursa') && (
+                    <>
+                      <div className="mb-2">
+                        <Label>Materia destino</Label>
+                        <Select value={item.materiaDestinoId} onValueChange={v => handleMateriaChange(idx, 'materiaDestinoId', v)}>
+                          <SelectTrigger className="w-64">
+                            <SelectValue placeholder="Seleccionar materia destino" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(materiasCursoDestino || []).map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Contenidos pendientes (opcional)</Label>
+                        <Textarea
+                          value={item.contenidosPendientes}
+                          onChange={e => handleMateriaChange(idx, 'contenidosPendientes', e.target.value)}
+                          rows={2}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Preview de la promoción */}
           {cursoDestinoId && (

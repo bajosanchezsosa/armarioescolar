@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alumno, GrupoTaller } from '@/types/database';
+import { useMateriasPendientes } from '@/hooks/useMateriasPendientes';
 
 const alumnoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es requerido'),
@@ -29,9 +30,10 @@ interface AlumnoFormProps {
   onSubmit: (data: AlumnoFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  materiasPendientes?: any[];
 }
 
-export const AlumnoForm = ({ alumno, cursoId, onSubmit, onCancel, isLoading = false }: AlumnoFormProps) => {
+export const AlumnoForm = ({ alumno, cursoId, onSubmit, onCancel, isLoading = false, materiasPendientes }: AlumnoFormProps) => {
   // Ensure grupo_taller is properly typed and has a default value
   const defaultGrupoTaller = (alumno?.grupo_taller === 'A' || alumno?.grupo_taller === 'B') 
     ? alumno.grupo_taller 
@@ -210,6 +212,22 @@ export const AlumnoForm = ({ alumno, cursoId, onSubmit, onCancel, isLoading = fa
             )}
           />
         </div>
+
+        {materiasPendientes && materiasPendientes.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-2">Materias Pendientes</h3>
+            <div className="space-y-2">
+              {materiasPendientes.map((mp: any) => (
+                <div key={mp.id} className="border p-2 rounded">
+                  <p><strong>Materia:</strong> {mp.materia_original?.nombre} ({mp.anio_origen})</p>
+                  <p><strong>Tipo:</strong> {mp.tipo_vinculacion}</p>
+                  <p><strong>Estado:</strong> {mp.estado}</p>
+                  {mp.observaciones && <p><strong>Obs:</strong> {mp.observaciones}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onCancel}>

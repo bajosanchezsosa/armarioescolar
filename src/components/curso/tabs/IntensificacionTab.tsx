@@ -36,8 +36,8 @@ export const IntensificacionTab = ({ cursoId }: IntensificacionTabProps) => {
   const { data: alumnos } = useAlumnos(cursoId);
   const eliminarMateriaPendiente = useEliminarMateriaPendiente();
 
-  const materiasVinculadas = materiasPendientes?.filter(mp => mp.vinculada_con_materia_id) || [];
-  const materiasSinVincular = materiasPendientes?.filter(mp => !mp.vinculada_con_materia_id) || [];
+  const materiasVinculadas = materiasPendientes?.filter(mp => mp.materia_destino_id) || [];
+  const materiasSinVincular = materiasPendientes?.filter(mp => !mp.materia_destino_id) || [];
 
   const handleVincularMateria = (materiaPendiente: any) => {
     setSelectedMateriaPendiente(materiaPendiente);

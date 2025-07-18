@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Users, Loader2, AlertCircle, Upload, GraduationCap, UsersIcon } from 'lucide-react';
 import { useAlumnos, useCreateAlumno, useUpdateAlumno, useDeleteAlumno } from '@/hooks/useAlumnos';
 import { useCurso } from '@/hooks/useCurso';
+import { useMateriasPendientes } from '@/hooks/useMateriasPendientes';
 import { AlumnosTable } from '../alumnos/AlumnosTable';
 import { AlumnoForm } from '../alumnos/AlumnoForm';
 import { BulkStudentImport } from '../alumnos/BulkStudentImport';
@@ -29,6 +30,7 @@ export const AlumnosTab = ({ cursoId }: AlumnosTabProps) => {
 
   const { data: alumnos, isLoading, error } = useAlumnos(cursoId);
   const { data: curso } = useCurso(cursoId);
+  const { data: materiasPendientes } = useMateriasPendientes(undefined, editingAlumno?.id);
   const createAlumno = useCreateAlumno();
   const updateAlumno = useUpdateAlumno();
   const deleteAlumno = useDeleteAlumno();
@@ -187,6 +189,7 @@ export const AlumnosTab = ({ cursoId }: AlumnosTabProps) => {
             onSubmit={handleFormSubmit}
             onCancel={handleCloseDialog}
             isLoading={createAlumno.isPending || updateAlumno.isPending}
+            materiasPendientes={materiasPendientes}
           />
         </DialogContent>
       </Dialog>

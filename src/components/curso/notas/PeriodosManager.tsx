@@ -195,7 +195,7 @@ export const PeriodosManager = ({ cursoId, onPeriodoSelect, selectedPeriodo }: P
                   {periodo.descripcion}
                 </span>
               )}
-              {(periodo.fecha_inicio || periodo.fecha_fin) && (
+              {(periodo.fecha_inicio || periodo.fecha_fin) && periodo.nombre !== 'Nota Final' && (
                 <span className="text-xs text-muted-foreground mt-1">
                   {periodo.fecha_inicio && format(new Date(periodo.fecha_inicio), 'dd/MM/yyyy', { locale: es })}
                   {periodo.fecha_inicio && periodo.fecha_fin && ' - '}
